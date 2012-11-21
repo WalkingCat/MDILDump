@@ -11,7 +11,8 @@ System assemblies contain ARM MDIL code are installed in
 **%ProgramFiles(x86)%\Microsoft SDKs\Windows Phone\\v8.0\DeviceNativeLibraries**
 
 System assemblies in the WP8 emulation VHD images contain x86 MDIL code, valuable for comparision  
-__[%ProgramFiles(x86)%\Microsoft SDKs\Windows Phone\\v8.0\Emulation\Images\Flash.vhd]&lt;SystemPartition&gt;\Windows\System32\\\*.ni.dll__
+__%ProgramFiles(x86)%\Microsoft SDKs\Windows Phone\\v8.0\Emulation\Images\Flash.vhd__  
+__[SystemPartition]\Windows\System32\\\*.ni.dll__
 
 # About MDIL
 
