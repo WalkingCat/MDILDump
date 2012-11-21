@@ -73,7 +73,7 @@ class easy_file {
 	FILE* file;
 public:
 	easy_file(const char* path, const char* mode) : file(nullptr) { fopen_s(&file, path, mode); }
-	~easy_file() { fclose(file); }
+	~easy_file() { if (file != nullptr) fclose(file); }
 
 	bool valid() { return file != nullptr; }
 	long offset() { return ftell(file); }
