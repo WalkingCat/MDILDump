@@ -34,13 +34,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (data.user_string_pool) dumper->dump_chars(data.user_string_pool, "User String Pool");
 	if (data.code_1.data) {
 		for (auto m = begin(data.code_1.methods); m != end(data.code_1.methods); ++m) {
-			m->routine.swap(mdil_decoder(data.code_1.data->data() + m->offset, m->routine_size).decode());
+			m->routine.swap(mdil_decoder(data.code_1.data->data() + m->offset + m->routine_offset, m->routine_size).decode());
 		}
 		dumper->dump_code(data.code_1, "Code 1");
 	}
 	if (data.code_2.data) {
 		for (auto m = begin(data.code_2.methods); m != end(data.code_2.methods); ++m) {
-			m->routine.swap(mdil_decoder(data.code_2.data->data() + m->offset, m->routine_size).decode());
+			m->routine.swap(mdil_decoder(data.code_2.data->data() + m->offset + m->routine_offset, m->routine_size).decode());
 		}
 		dumper->dump_code(data.code_2, "Code 2");
 	}

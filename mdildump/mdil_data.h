@@ -152,13 +152,15 @@ struct mdil_method
 	size_t offset;
 	size_t global_offset;
 	size_t size;
+
+	size_t routine_offset;
 	size_t routine_size;
 	unsigned long exception_count;
 
 	std::vector<std::shared_ptr<mdil_instruction>> routine;
 
-	mdil_method(size_t _offset, size_t _global_offset, size_t _size, size_t _routine_size, unsigned long _exception_count)
-		: offset(_offset), global_offset(_global_offset), size(_size), routine_size(_routine_size), exception_count(_exception_count) {}
+	mdil_method(size_t _offset, size_t _global_offset, size_t _size, size_t _routine_offset, size_t _routine_size, unsigned long _exception_count)
+		: offset(_offset), global_offset(_global_offset), size(_size), routine_offset(_routine_offset), routine_size(_routine_size), exception_count(_exception_count) {}
 };
 
 struct mdil_code

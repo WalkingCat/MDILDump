@@ -14,7 +14,7 @@ DWORD parse_compressed_dword(const unsigned char* buffer, unsigned long &pos) {
 	return ret;
 }
 
-DWORD parse_method(const unsigned char* buffer, DWORD* routineSize, DWORD* exceptCount) {
+DWORD parse_method(const unsigned char* buffer, DWORD* routineOffset, DWORD* routineSize, DWORD* exceptCount) {
 	DWORD pos = 0;
 
 	DWORD routine_size = 0, except = 0;
@@ -48,8 +48,7 @@ DWORD parse_method(const unsigned char* buffer, DWORD* routineSize, DWORD* excep
 		}
 	}
 
-	auto routine_code = mdil_decoder(buffer + pos, routine_size).decode();
-// 	dumper.dump_code(routine_code, buffer + pos, routine_size);
+	if (routineOffset != nullptr) *routineOffset = pos;
 
 	pos += routine_size;
 
@@ -184,9 +183,9 @@ std::string mdil_parser::parse(const char* filename, mdil_data& data) {
 			DWORD code1_pos = 0;
 			if (data.code_1.data.size() >= 4) code1_pos += 4;
 			while (code1_pos < data.code_1.data.size()) {
-				DWORD routine, except;
-				DWORD length = parse_method(data.code_1.data->data() + code1_pos, &routine, &except);
-				if (length > 0) data.code_1.methods.push_back(mdil_method(code1_pos, code1_pos, length, routine, except));
+				DWORD routine_offset, routine_size, except;
+				DWORD length = parse_method(data.code_1.data->data() + code1_pos, &routine_offset, &routine_size, &except);
+				if (length > 0) data.code_1.methods.push_back(mdil_method(code1_pos, code1_pos, length, routine_offset, routine_size, except));
 				code1_pos += length;
 			}
 
@@ -195,9 +194,9 @@ std::string mdil_parser::parse(const char* filename, mdil_data& data) {
 			DWORD code2_pos = 0;
 			if (data.code_2.data.size() >= 4) code2_pos += 4;
 			while (code2_pos < data.code_2.data.size()) {
-				DWORD routine, except;
-				DWORD length = parse_method(data.code_2.data->data() + code2_pos, &routine, &except);
-				if (length > 0) data.code_2.methods.push_back(mdil_method(code2_pos, data.code_1.data.size() + code2_pos, length, routine, except));
+				DWORD routine_offset, routine_size, except;
+				DWORD length = parse_method(data.code_2.data->data() + code2_pos, &routine_offset, &routine_size, &except);
+				if (length > 0) data.code_2.methods.push_back(mdil_method(code2_pos, data.code_1.data.size() + code2_pos, length, routine_offset, routine_size, except));
 				code2_pos += length;
 			}
 
