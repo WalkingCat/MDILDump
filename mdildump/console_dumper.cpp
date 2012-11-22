@@ -290,7 +290,7 @@ void console_dumper::dump_code( const mdil_code& code, const char* title, const 
 		printf_s("METHOD_0x%06X:\nSize = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
 			m->global_offset, m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
 		dump_bytes_int(code.data, m->offset, m->size);
-		if (!m->routine.empty()) dump_instructions(m->routine, code.data->data() + m->offset, m->routine_size);
+		if (!m->routine.empty()) dump_instructions(m->routine, code.data->data() + m->offset + m->routine_offset, m->routine_size);
 		printf_s("\n");
 	}
 }

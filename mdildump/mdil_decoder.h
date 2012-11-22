@@ -7,6 +7,7 @@ class mdil_decoder {
 	const unsigned long m_length;
 	unsigned long m_pos;
 	bool m_error;
+	char read_signed_byte();
 	unsigned char read_byte();
 	unsigned short read_word_le();
 	unsigned short read_word_be();
@@ -21,6 +22,7 @@ class mdil_decoder {
 	std::string format_address();
 	std::string format_address_call_indirect();
 	std::string format_field_token();
+	std::string format_jump_distance(bool jump_long = false);
 public:
 	mdil_decoder(const unsigned char* buffer, const unsigned long length);
 	std::vector<std::shared_ptr<mdil_instruction>> decode();

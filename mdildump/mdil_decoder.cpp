@@ -106,6 +106,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x11: i->set("LIT_MACHINE_INST_W", read_native_quote(read_word_le())); break;
 		case 0x13: i->set("LOAD", format_address()); break;
 		case 0x14: i->set("STORE", format_address()); break;
+		case 0x15: i->set("STORE_REF", format_address()); break;
 		case 0x16: i->set("LOAD_SX", format_address()); break;
 		case 0x17: i->set("LOAD_ZX", format_address()); break;
 		case 0x18: i->set("LOAD_X", format_address()); break;
@@ -135,6 +136,25 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x4e: i->set("CALL_REF", format_dword(0x0A000000 + read_word_le())); break;
 		case 0x4f: i->set("CALL_VIRT_DEF", format_dword(0x06000000 + read_word_le())); break;
 		case 0x50: i->set("CALL_VIRT_REF", format_dword(0x0A000000 + read_word_le())); break;
+		case 0x51: i->set("JUMP", format_jump_distance()); break;
+		case 0x52: i->set("JUMP_LONG", format_jump_distance(true)); break;
+		case 0x53: i->set("JUMP_O", format_jump_distance()); break;
+		case 0x54: i->set("JUMP_NO", format_jump_distance()); break;
+		case 0x55: i->set("JUMP_ULT", format_jump_distance()); break;
+		case 0x56: i->set("JUMP_UGE", format_jump_distance()); break;
+		case 0x57: i->set("JUMP_EQ", format_jump_distance()); break;
+		case 0x58: i->set("JUMP_NE", format_jump_distance()); break;
+		case 0x59: i->set("JUMP_ULE", format_jump_distance()); break;
+		case 0x5a: i->set("JUMP_UGT", format_jump_distance()); break;
+		case 0x5b: i->set("JUMP_S", format_jump_distance()); break;
+		case 0x5c: i->set("JUMP_NS", format_jump_distance()); break;
+		case 0x5d: i->set("JUMP_PE", format_jump_distance()); break;
+		case 0x5e: i->set("JUMP_PO", format_jump_distance()); break;
+		case 0x5f: i->set("JUMP_LT", format_jump_distance()); break;
+		case 0x60: i->set("JUMP_GE", format_jump_distance()); break;
+		case 0x61: i->set("JUMP_LE", format_jump_distance()); break;
+		case 0x62: i->set("JUMP_GT", format_jump_distance()); break;
+		case 0x69: i->set("ISINST", format_type_token()); break;
 		case 0x6f: i->set("REF_BIRTH_EAX"); break;
 		case 0x70: i->set("REF_BIRTH_ECX"); break;
 		case 0x71: i->set("REF_BIRTH_EDX"); break;
@@ -147,6 +167,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x78: i->set("REF_DEATH_ECX"); break;
 		case 0x79: i->set("REF_DEATH_EDX"); break;
 		case 0x7a: i->set("REF_DEATH_EBX"); break;
+		case 0x7b: i->set("REF_DEATH_REG", mdil_reg((read_byte() >> 5) & 0x1f)); break;
 		case 0x7c: i->set("REF_DEATH_EBP"); break;
 		case 0x7d: i->set("REF_DEATH_ESI"); break;
 		case 0x7e: i->set("REF_DEATH_EDI"); break;
@@ -200,6 +221,11 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		if (m_error) break;
 	}
 	return routine;
+}
+
+char mdil_decoder::read_signed_byte()
+{
+	return (char) m_buffer[m_pos++];
 }
 
 unsigned char mdil_decoder::read_byte()
@@ -320,4 +346,17 @@ std::string mdil_decoder::format_field_token()
 std::string mdil_decoder::format_method_token( unsigned long val )
 {
 	return format_dword(val);
+}
+
+std::string mdil_decoder::format_jump_distance(bool jump_long)
+{
+	if (jump_long) return format_dword(read_dword_le());
+	else {
+		char distance = read_signed_byte();
+		if (distance != -1) {
+			stringstream s;
+			s << uppercase << hex << setfill('0') << setw(2) << (int) distance;
+			return s.str();
+		} else return format_dword(read_dword_le());
+	}
 }
