@@ -25,7 +25,7 @@ string mdil_reg (unsigned char reg) {
 	case 0xD : return "R13";
 	case 0xE : return "R14";
 	case 0xF : return "R15";
-	default  : return "???";
+	default  : return "!!!";
 	}
 }
 
@@ -113,9 +113,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x19: i->set("LOAD_ADDR", format_address()); break;
 		case 0x1a: i->set("ADD", format_address()); break;
 		case 0x1b: i->set("ADC", format_address()); break;
-		case 0x1C: i->set("AND", format_address()); break;
-		case 0x1D: i->set("CMP", format_address()); break;
-		case 0x1E: i->set("OR", format_address()); break;
+		case 0x1c: i->set("AND", format_address()); break;
+		case 0x1d: i->set("CMP", format_address()); break;
+		case 0x1e: i->set("OR", format_address()); break;
 		case 0x1f: i->set("SUB", format_address()); break;
 		case 0x20: i->set("SBB", format_address()); break;
 		case 0x21: i->set("XOR", format_address()); break;
@@ -130,6 +130,8 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x30: i->set("STORE_IMM"); i->operands += format_address(); i->operands += ", " + format_immediate(); break;
 		case 0x3f: i->set("COPY_STRUCT"); i->operands += "SRC:" + format_address(); i->operands += " DST:" + format_address(); break;
 		case 0x40: i->set("PUSH_STRUCT", format_address()); break;
+		case 0x45: i->set("GET_STATIC_BASE", format_type_token()); break;
+		case 0x46: i->set("GET_STATIC_BASE_GC", format_type_token()); break;
 		case 0x49: i->set("CALL_INDIRECT", format_address_call_indirect()); break;
 		case 0x4b: i->set("HELPER_CALL", format_immediate()); break;
 		case 0x4d: i->set("CALL_DEF", format_dword(0x06000000 + read_word_le())); break;
@@ -159,7 +161,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x70: i->set("REF_BIRTH_ECX"); break;
 		case 0x71: i->set("REF_BIRTH_EDX"); break;
 		case 0x72: i->set("REF_BIRTH_EBX"); break;
-		case 0x73: i->set("REF_BIRTH_REG", mdil_reg((read_byte() >> 5) & 0x1f) + " TODO: flags"); break;
+		case 0x73: i->set("REF_BIRTH_REG", mdil_reg((read_byte() >> 3) & 0x1f) + " TODO: flags"); break;
 		case 0x74: i->set("REF_BIRTH_EBP"); break;
 		case 0x75: i->set("REF_BIRTH_ESI"); break;
 		case 0x76: i->set("REF_BIRTH_EDI"); break;
@@ -167,12 +169,30 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x78: i->set("REF_DEATH_ECX"); break;
 		case 0x79: i->set("REF_DEATH_EDX"); break;
 		case 0x7a: i->set("REF_DEATH_EBX"); break;
-		case 0x7b: i->set("REF_DEATH_REG", mdil_reg((read_byte() >> 5) & 0x1f)); break;
+		case 0x7b: i->set("REF_DEATH_REG", mdil_reg((read_byte() >> 3) & 0x1f)); break;
 		case 0x7c: i->set("REF_DEATH_EBP"); break;
 		case 0x7d: i->set("REF_DEATH_ESI"); break;
 		case 0x7e: i->set("REF_DEATH_EDI"); break;
+		case 0x83: i->set("REF_BIRTH_LOCAL", format_immediate()); break;
+		case 0x84: i->set("REF_BIRTH_LOCAL", format_immediate()); break;
 		case 0x8b: i->set("REF_UNTR_LOCAL", format_immediate()); break;
+		case 0x8d: i->set("START_FULLY_INTERRUPTIBLE"); break;
+		case 0x8e: i->set("END_FULLY_INTERRUPTIBLE"); break;
+		case 0x8f: i->set("GC_PROBE"); break;
 		case 0x97: i->set("REF_POP_N", format_immediate()); break;
+		case 0x99: i->set("REF_DEATH_REGS_POP_N");
+				   {
+					   unsigned char reg = read_byte();
+					   if (reg & 1) ss << "EAX,";
+					   if (reg & (1 << 1)) ss << "EDX,";
+					   if (reg & (1 << 2)) ss << "ECX,";
+					   if (reg & (1 << 3)) ss << "EBX,";
+					   if (reg & (1 << 4)) ss << "ESI,";
+					   if (reg & (1 << 5)) ss << "EDI,";
+					   ss << (reg >> 6);
+					   i->operands = ss.str();
+				   }
+			break;
 		case 0x9e:
 			i->opcode = "LOAD_STRING";
 			i->operands = mdil_reg(read_byte()) + ", ";
@@ -202,7 +222,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		}
 		case 0xb8: i->set("FRAME_SIZE", format_immediate()); break;
 		case 0xb9: i->set("END_PROLOG"); break;
+		case 0xba: i->set("EPILOG"); break;
 		case 0xbb: i->set("EPILOG_RET"); break;
+		case 0xbc: i->set("END_EPILOG"); break;
 		case 0xc5: i->set("GENERIC_LOOKUP", format_dword(read_dword_le())); break;
 		case 0xd0: i->set("PRESERVE_REGISTER_ACROSS_PROLOG"); break;
 		case 0xda: i->set("UNKNOWN_DA", format_byte(read_byte())); break;
