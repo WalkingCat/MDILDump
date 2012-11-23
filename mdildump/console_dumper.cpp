@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "console_dumper.h"
 
+using namespace std;
+
 struct ulong_as_chars {
 	char chars[5];
 	ulong_as_chars(unsigned long ulong) {
@@ -194,9 +196,9 @@ void console_dumper::dump_method_map(const char* title, const char* description)
 			if (method == 0xCAFEDEAD) { // WTF ?
 				printf_s("??: %08X", method);
 			} else if (method & (1 << 31)) {
-				printf_s("GI: %08X", method  & ~(1 << 31));
+				printf_s("GENI: %08X", method  & ~(1 << 31));
 			} else {
-				printf_s("CD: %08X", method);
+				printf_s("CODE: %08X", method);
 			}
 
 			printf_s( ((i % 4) == 3) ? "\n" : " ");
@@ -235,15 +237,32 @@ void console_dumper::dump_generic_instances( const char* title, const char* desc
 	printf_s("\n");
 }
 
+std::string console_dumper::format_ext_module_ref( unsigned long id )
+{
+	auto saved = ext_modules.find(id);
+	if (saved != ext_modules.end()) return saved->second;
+	else {
+		string module(m_data.name_pool->data() + m_data.ext_module_refs->at(id).ModName);
+		auto off = module.find(',');
+		if (off > 0) {
+			auto off2 = module.find(',', off + 1);
+			if (off2 > 0) module.swap(module.substr(0, off2));
+			else module.swap(module.substr(0, off));
+		}
+		ext_modules[id] = module;
+		return ext_modules[id];
+	}
+}
+
 void console_dumper::dump_ext_module_refs( const char* title, const char* description )
 {
 	print_vector_size(m_data.ext_module_refs, title, description);
 
-	if (!m_data.ext_module_refs) return;
+	if ((!m_data.ext_module_refs) || m_data.ext_module_refs->empty()) return;
 
 	printf_s("Signature?: 0x%X\n", m_data.ext_module_refs->at(0).ModName);
 	for (unsigned long i = 1; i < m_data.ext_module_refs.size(); i++) {
-		printf_s("%d = %s [%s]\n", i, &m_data.name_pool->at(m_data.ext_module_refs->at(i).ModName), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
+		printf_s("%04d = %s [%s]\n", i, format_ext_module_ref(i).c_str(), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
 	}
 	printf_s("\n");
 }
@@ -253,9 +272,21 @@ void console_dumper::dump_ext_type_refs( const char* title, const char* descript
 	print_vector_size(m_data.ext_type_refs, title, description);
 
 	for (unsigned long i = 1; i < m_data.ext_type_refs.size(); i++) {
-		printf_s("%d: %s [%d]\n", i, &m_data.name_pool->at(m_data.ext_module_refs->at(m_data.ext_type_refs->at(i).module).ModName), m_data.ext_type_refs->at(i).ordinal);
+		auto ref = m_data.ext_type_refs->at(i);
+ 		printf_s("%04d: [MODR(%04d), %04d]", i, ref.module, ref.ordinal);
+		printf_s(" ; MODR = %s\n", format_ext_module_ref(ref.module).c_str());
 	}
 	printf_s("\n");
+}
+
+std::string console_dumper::format_ext_type_ref( unsigned long id )
+{
+	stringstream ss;
+	auto ref = m_data.ext_type_refs->at(id);
+
+	ss << format_ext_module_ref(ref.module) << "(" << setw(4) << setfill('0') << ref.ordinal << ")";
+
+	return ss.str();
 }
 
 void console_dumper::dump_ext_member_refs( const char* title, const char* description )
@@ -264,9 +295,10 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 
 	for (unsigned long i = 1; i < m_data.ext_member_refs.size(); i++) {
 		if (m_data.ext_member_refs->at(i).isTypeSpec) {
-			printf_s("%d: TS %d [%d]\n", i, m_data.ext_member_refs->at(i).extTypeRid, m_data.ext_member_refs->at(i).ordinal);
+			printf_s("%04d: [TYPS(%04d), %04d]\n", i, m_data.ext_member_refs->at(i).extTypeRid, m_data.ext_member_refs->at(i).ordinal);
 		} else {
-			printf_s("%d: TR %s [%d]\n", i, &m_data.name_pool->at(m_data.ext_module_refs->at(m_data.ext_type_refs->at(m_data.ext_member_refs->at(i).extTypeRid).module).ModName), m_data.ext_member_refs->at(i).ordinal);
+			printf_s("%04d: [TYPR(%04d), %04d]", i, m_data.ext_member_refs->at(i).extTypeRid, m_data.ext_member_refs->at(i).ordinal);
+			printf_s(" ; TYPR = %s\n", format_ext_type_ref(m_data.ext_member_refs->at(i).extTypeRid).c_str());
 		}
 	}
 	printf_s("\n");

@@ -11,6 +11,7 @@
 #pragma warning(pop)
 
 #include <vector>
+#include <unordered_map>
 #include <sstream>
 #include <iomanip>
 
