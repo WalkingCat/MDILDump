@@ -14,6 +14,11 @@ struct ulong_as_chars {
 
 void console_dumper::dump_mdil_header( const char* title, const char* description )
 {
+	if (!m_data.header) {
+		printf_s("%s: Not found\n", title);
+		return;
+	}
+
 	const mdil_header& header = *m_data.header;
 
 	if (title != nullptr) printf_s("%s: Size = %d bytes\n", title, sizeof(mdil_header));
@@ -70,6 +75,11 @@ void console_dumper::dump_mdil_header( const char* title, const char* descriptio
 
 void console_dumper::dump_mdil_header_2( const char* title, const char* description )
 {
+	if (!m_data.header_2) {
+		printf_s("%s: Not found\n", title);
+		return;
+	}
+
 	const mdil_header_2& header2 = *m_data.header_2;
 
 	if (title != nullptr) printf_s("%s: Size = %d bytes\n", title, sizeof(mdil_header_2));
@@ -111,6 +121,11 @@ void console_dumper::dump_mdil_header_2( const char* title, const char* descript
 template<typename T>
 void print_vector_size(const shared_vector<T>& data, const char* title, const char* description)
 {
+	if (!data) {
+		printf_s("%s: Not found\n", title);
+		return;
+	}
+
 	if (title != nullptr) {
 		if (sizeof(T) == 1) printf_s("%s: Size = %d bytes\n", title, data.size());
 		else printf_s("%s: Count = %d, Size = %d bytes\n", title, data.size(), data.size() * sizeof(T));
@@ -223,6 +238,8 @@ void console_dumper::dump_generic_instances( const char* title, const char* desc
 void console_dumper::dump_ext_module_refs( const char* title, const char* description )
 {
 	print_vector_size(m_data.ext_module_refs, title, description);
+
+	if (!m_data.ext_module_refs) return;
 
 	printf_s("Signature?: 0x%X\n", m_data.ext_module_refs->at(0).ModName);
 	for (unsigned long i = 1; i < m_data.ext_module_refs.size(); i++) {

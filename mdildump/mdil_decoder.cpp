@@ -31,14 +31,13 @@ string mdil_reg (unsigned char reg) {
 
 std::string mdil_decoder::format_immediate() {
 	std::stringstream ret;
-	ret.fill('0');
 	ret.flags(ret.uppercase | ret.hex);
 
 	unsigned char first_byte = m_buffer[m_pos++];
 	switch (first_byte)
 	{
 	case 0xbb: // SignedWord
-		ret << setw(4) << (short) (m_buffer[m_pos] + (m_buffer[m_pos+1] << 8));
+		ret << setw(4) << setfill('0') << (short) (m_buffer[m_pos] + (m_buffer[m_pos+1] << 8));
 		m_pos += 2;
 		break;
 	case 0xdd: ret << format_dword(read_dword_le()); break;
@@ -53,7 +52,7 @@ std::string mdil_decoder::format_immediate() {
 		ret << "+" << format_immediate();
 		break;
 	default: // SignedByte
-		ret << setw(2) << (int) (char) first_byte;
+		ret << setw(2) << setfill('0') << (int) (char) first_byte;
 		break;
 	}
 
@@ -63,10 +62,8 @@ std::string mdil_decoder::format_immediate() {
 string mdil_decoder::read_native_quote (unsigned long length) {
 	stringstream ss;
 	ss.flags(ss.hex | ss.uppercase);
-	ss.width(2);
-	ss.fill('0');
 	for (unsigned long i = 0; i < length; ++i) {
-		ss << (int) m_buffer[m_pos++] << " ";
+		ss << setw(2) << setfill('0') << (int) m_buffer[m_pos++] << " ";
 	}
 	return ss.str();
 }
@@ -76,7 +73,6 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 	std::vector<shared_ptr<mdil_instruction>> routine;
 	stringstream ss;
 	ss.flags(ss.uppercase | ss.hex);
-	ss.fill('0');
 
 	m_pos = 0;
 	m_error = false;
