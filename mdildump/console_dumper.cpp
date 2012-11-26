@@ -14,6 +14,17 @@ struct ulong_as_chars {
 	}
 };
 
+void dump_flags( uint32_t flags )
+{
+	bool first = true;
+	for (int i = 0; i < 32; i++) {
+		if (flags & (1 << i)) {
+			if (first) first = false; else { printf_s("|"); }
+			printf_s("0x%x", 1 << i);
+		}
+	}
+}
+
 void console_dumper::dump_mdil_header( const char* title, const char* description )
 {
 	if (!m_data.header) {
@@ -53,14 +64,7 @@ void console_dumper::dump_mdil_header( const char* title, const char* descriptio
 
 	unsigned int flags = header.flags;
 	printf_s("\t.flags = 0x%x ", flags);
-	bool none = true;
-	for (int i = 0; i < 32; i++) {
-		if (flags & (1 << i)) {
-			if (none) { printf_s("("); none = false; } else { printf_s("|"); }
-			printf_s("0x%x", 1 << i);
-		}
-	}
-	if (!none) printf_s(")");
+	if (flags != 0) { printf_s("("); dump_flags(flags); printf_s(")"); }
 	printf_s("\n");
 
 	printf_s("\t.unknown = 0x%x\n", header.Unknown);
@@ -294,11 +298,13 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 	print_vector_size(m_data.ext_member_refs, title, description);
 
 	for (unsigned long i = 1; i < m_data.ext_member_refs.size(); i++) {
-		if (m_data.ext_member_refs->at(i).isTypeSpec) {
-			printf_s("%04d: [TYPS(%04d), %04d]\n", i, m_data.ext_member_refs->at(i).extTypeRid, m_data.ext_member_refs->at(i).ordinal);
+		auto ref = m_data.ext_member_refs->at(i);
+		printf_s("%04d: %s ", i, ref.isField ? "FIELD " : "MEMBER");
+		if (ref.isTypeSpec) {
+			printf_s("[TYPS(%04d), %04d]\n", ref.extTypeRid, ref.ordinal);
 		} else {
-			printf_s("%04d: [TYPR(%04d), %04d]", i, m_data.ext_member_refs->at(i).extTypeRid, m_data.ext_member_refs->at(i).ordinal);
-			printf_s(" ; TYPR = %s\n", format_ext_type_ref(m_data.ext_member_refs->at(i).extTypeRid).c_str());
+			printf_s("[TYPR(%04d), %04d]", ref.extTypeRid, ref.ordinal);
+			printf_s(" ; TYPR = %s\n", format_ext_type_ref(ref.extTypeRid).c_str());
 		}
 	}
 	printf_s("\n");
@@ -315,9 +321,34 @@ void console_dumper::dump_types(const char* title, const char* description)
 		pos += 4;
 	}
 
-	if (pos < m_data.types.size()) {
-		dump_bytes_int(m_data.types, pos, m_data.types.size() - pos);
+	map<unsigned long, unsigned long> offsets;
+
+	for (auto i = begin(*m_data.type_map); i != end(*m_data.type_map); ++i) {
+		offsets[*i] = 1;
 	}
+
+	for (auto i = begin(*m_data.type_specs); i != end(*m_data.type_specs); ++i) {
+		offsets[*i] = 2;
+	}
+
+	for (auto i = begin(*m_data.method_specs); i != end(*m_data.method_specs); ++i) {
+		offsets[*i] = 3;
+	}
+
+	pair<unsigned long, unsigned long> prev(0xffffffff, 0);
+	for (auto i = begin(offsets); i != end(offsets); ++i) {
+		if (prev.first < m_data.types.size()) {
+			printf_s("%s_%06X\n", (prev.second == 1) ? "TYPM" : (prev.second == 2) ? "TYPS" : "METS", prev.first);
+			dump_bytes_int(m_data.types, prev.first, i->first - prev.first);
+		}
+		prev = *i;
+	}
+	printf_s("%s_%06X\n", (prev.second == 1) ? "TYPM" : (prev.second == 2) ? "TYPS" : "METS", prev.first);
+	dump_bytes_int(m_data.types, prev.first, m_data.types.size() - prev.first);
+	
+// 	if (pos < m_data.types.size()) {
+// 		dump_bytes_int(m_data.types, pos, m_data.types.size() - pos);
+// 	}
 	
 	printf_s("\n");
 }

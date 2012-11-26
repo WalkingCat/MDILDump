@@ -10,9 +10,12 @@
 #include <memory>
 #pragma warning(pop)
 
+#include <cstdint>
 #include <vector>
 #include <unordered_map>
 #include <sstream>
 #include <iomanip>
+#include <map>
 
 #include <windows.h>
+#include <CorHdr.h>

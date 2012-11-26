@@ -2,7 +2,10 @@
 #include "mdil_data.h"
 #include "mdil_parser.h"
 #include "mdil_decoder.h"
+#include "mdil_ctl_parser.h"
 #include "console_dumper.h"
+
+using namespace std;
 
 enum dump_options {
 	dumpNone			= 0x0,
@@ -36,38 +39,38 @@ enum dump_options {
 };
 
 const struct { const char* arg; const char* arg_alt; const char* description; const int options; } cmd_options[] = {
-	{ "?", "help", "show this help", dumpHelp},
-	{ "all", nullptr, "dump all the data", 0xffffffff & (~dumpHelp)},
-	{ "h", "header", "dump MDIL header", dumpHeader},
-	{ "h2", "header2", "dump MDIL header 2", dumpHeader2},
-	{ nullptr, "headers", "dump MDIL headers", dumpHeader | dumpHeader2},
-	{ "pd", "platformdata", "dump platform data", dumpPlatformData},
-	{ "wkt", "wellknowntypes", "dump well known types", dumpWellKnownTypes},
-	{ "tm", "typemap", "dump type map", dumpTypeMap},
-	{ "mm", "methodmap", "dump method map", dumpMethodMap},
-	{ "gi", "genericinstances", "dump generic instances", dumpGenericInstances},
-	{ "emor", "extmodulerefs", "dump external module references", dumpExtModuleRefs},
-	{ "etr", "exttyperefs", "dump external type references", dumpExtTypeRefs},
-	{ "emr", "extmemberrefs", "dump external member references", dumpExtMemberRefs},
-	{ nullptr, "extrefs", "dump external references", dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs},
-	{ "ts", "typespecs", "dump type specs", dumpTypeSpecs},
-	{ "ms", "methodspecs", "dump method specs", dumpMethodSpecs},
-	{ "s10", "section10", "dump section 10", dumpSection10},
-	{ "np", "namepool", "dump name pool", dumpNamePool},
-	{ "t", "types", "dump types", dumpTypes},
-	{ "usp", "userstringpool", "dump user string pool", dumpUserStringPool},
-	{ "c1", "code1", "dump code 1", dumpCode1},
-	{ "c2", "code2", "dump code 2", dumpCode2},
-	{ "c", "code", "dump code 1 & 2", dumpCode1 | dumpCode2},
-	{ "s16", "section16", "dump section 16", dumpSection16},
-	{ "s17", "section17", "dump section 17", dumpSection17},
-	{ "dm", "debugmap", "dump debug map", dumpDebugMap},
-	{ "di1", "debuginfo1", "dump debug info 1", dumpDebugInfo1},
-	{ "di2", "debuginfo2", "dump debug info 2", dumpDebugInfo2},
-	{ nullptr, "debug", "dump debug map & info 1 & 2", dumpDebugMap | dumpDebugInfo1 | dumpDebugInfo2},
-	{ "s21", "section21", "dump section 21", dumpSection21},
-	{ "s22", "section22", "dump section 22", dumpSection22},
-	{ "cd", "codedasm", "dump disassembled code", dumpCodeDasm},
+	{ "?", "help", "show this help", dumpHelp },
+	{ "all", nullptr, "dump all the data", 0xffffffff & (~dumpHelp) },
+	{ "h", "header", "dump MDIL header", dumpHeader },
+	{ "h2", "header2", "dump MDIL header 2", dumpHeader2 },
+	{ nullptr, "headers", "dump MDIL headers", dumpHeader | dumpHeader2 },
+	{ "pd", "platformdata", "dump platform data", dumpPlatformData },
+	{ "wkt", "wellknowntypes", "dump well known types", dumpWellKnownTypes },
+	{ "tm", "typemap", "dump type map", dumpTypeMap },
+	{ "mm", "methodmap", "dump method map", dumpMethodMap },
+	{ "gi", "genericinstances", "dump generic instances", dumpGenericInstances },
+	{ "emor", "extmodulerefs", "dump external module references", dumpExtModuleRefs },
+	{ "etr", "exttyperefs", "dump external type references", dumpExtTypeRefs },
+	{ "emr", "extmemberrefs", "dump external member references", dumpExtMemberRefs },
+	{ nullptr, "extrefs", "dump external references", dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs },
+	{ "ts", "typespecs", "dump type specs", dumpTypeSpecs },
+	{ "ms", "methodspecs", "dump method specs", dumpMethodSpecs },
+	{ "s10", "section10", "dump section 10", dumpSection10 },
+	{ "np", "namepool", "dump name pool", dumpNamePool },
+	{ "t", "types", "dump types", dumpTypes },
+	{ "usp", "userstringpool", "dump user string pool", dumpUserStringPool },
+	{ "c1", "code1", "dump code 1", dumpCode1 },
+	{ "c2", "code2", "dump code 2", dumpCode2 },
+	{ "c", "code", "dump code 1 & 2", dumpCode1 | dumpCode2 },
+	{ "s16", "section16", "dump section 16", dumpSection16 },
+	{ "s17", "section17", "dump section 17", dumpSection17 },
+	{ "dm", "debugmap", "dump debug map", dumpDebugMap },
+	{ "di1", "debuginfo1", "dump debug info 1", dumpDebugInfo1 },
+	{ "di2", "debuginfo2", "dump debug info 2", dumpDebugInfo2 },
+	{ nullptr, "debug", "dump debug map & info 1 & 2", dumpDebugMap | dumpDebugInfo1 | dumpDebugInfo2 },
+	{ "s21", "section21", "dump section 21", dumpSection21 },
+	{ "s22", "section22", "dump section 22", dumpSection22 },
+	{ "cd", "codedasm", "dump disassembled code", dumpCodeDasm },
 };
 
 void print_usage() {
@@ -131,19 +134,20 @@ int _tmain(int argc, _TCHAR* argv[])
 	if ((!data.header) && (!error.empty())) { printf_s("Parsing Error: %s\n", error.c_str()); return 0; }
 
 	std::shared_ptr<console_dumper> dumper = std::make_shared<console_dumper>(data);
+	auto ctl_dumper = make_shared<mdil_ctl_parser>(data);
 
 	if (options & dumpHeader)			dumper->dump_mdil_header("MDIL Header");
 	if (options & dumpHeader2)			dumper->dump_mdil_header_2("MDIL Header 2");
 	if (options & dumpPlatformData)		dumper->dump_bytes(data.platform_data, "Platform Data");
 	if (options & dumpWellKnownTypes)	dumper->dump_ulongs(data.well_known_types, "Well Known Types Table");
-	if (options & dumpTypeMap)			dumper->dump_ulongs(data.type_map, "Type Map", "Offsets in Types section");
+	if (options & dumpTypeMap)			ctl_dumper->dump_type_map("Type Map", "Offsets in Types section");
 	if (options & dumpMethodMap)		dumper->dump_method_map("Method Map", "Offsets in Generic Instances or Code section");
 	if (options & dumpGenericInstances)	dumper->dump_generic_instances("Generic Instances");
 	if (options & dumpExtModuleRefs)	dumper->dump_ext_module_refs("External Module References", "Offsets in Name Pool section");
 	if (options & dumpExtTypeRefs)		dumper->dump_ext_type_refs("External Type References", "Index in External Module References section, and an index");
 	if (options & dumpExtMemberRefs)	dumper->dump_ext_member_refs("External Member References", "Index in Type Spec or External Type References section, and an index");
-	if (options & dumpTypeSpecs)		dumper->dump_ulongs(data.type_specs, "Type Specs", "Offsets in Compact Type Layout section");
-	if (options & dumpMethodSpecs)		dumper->dump_ulongs(data.method_specs, "Method Specs", "Offsets in Compact Type Layout section");
+	if (options & dumpTypeSpecs)		ctl_dumper->dump_type_specs("Type Specs", "Offsets in Types section");
+	if (options & dumpMethodSpecs)		dumper->dump_ulongs(data.method_specs, "Method Specs", "Offsets in Types Layout section");
 	if (options & dumpSection10)		dumper->dump_ulongs(data.section_10, "Section 10");
 	if (options & dumpNamePool)			dumper->dump_chars(data.name_pool, "Name Pool");
 	if (options & dumpTypes)			dumper->dump_types("Types", "Compact Type Layout");

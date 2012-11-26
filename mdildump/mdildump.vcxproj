@@ -80,6 +80,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="console_dumper.h" />
+    <ClInclude Include="mdil_ctl_parser.h" />
     <ClInclude Include="mdil_data.h" />
     <ClInclude Include="mdil_decoder.h" />
     <ClInclude Include="mdil_parser.h" />
@@ -88,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="console_dumper.cpp" />
+    <ClCompile Include="mdil_ctl_parser.cpp" />
     <ClCompile Include="mdil_decoder.cpp" />
     <ClCompile Include="mdildump.cpp" />
     <ClCompile Include="mdil_parser.cpp" />

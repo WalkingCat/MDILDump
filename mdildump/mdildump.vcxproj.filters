@@ -7,6 +7,7 @@
     <ClInclude Include="mdil_data.h" />
     <ClInclude Include="console_dumper.h" />
     <ClInclude Include="mdil_parser.h" />
+    <ClInclude Include="mdil_ctl_parser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="mdildump.cpp" />
@@ -14,5 +15,6 @@
     <ClCompile Include="mdil_decoder.cpp" />
     <ClCompile Include="console_dumper.cpp" />
     <ClCompile Include="mdil_parser.cpp" />
+    <ClCompile Include="mdil_ctl_parser.cpp" />
   </ItemGroup>
 </Project>
