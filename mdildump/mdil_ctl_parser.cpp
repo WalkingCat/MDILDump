@@ -80,17 +80,17 @@ uint32_t mdil_ctl_parser::read_compressed_uint32()
 	return ret;
 }
 
-uint32_t mdil_ctl_parser::read_compressed_type_token()
+mdToken mdil_ctl_parser::read_compressed_type_token()
 {
-	uint32_t ret = read_compressed_uint32();
+	mdToken ret = read_compressed_uint32();
 	uint8_t token_type_flag = ret & 3;
 	CorTokenType token_type = (token_type_flag == 0) ? mdtModule : (token_type_flag == 1) ? mdtTypeDef : (token_type_flag == 2) ? mdtTypeRef : mdtTypeSpec;
 	return (ret >> 2) | token_type;
 }
 
-uint32_t mdil_ctl_parser::read_compressed_method_token()
+mdToken mdil_ctl_parser::read_compressed_method_token()
 {
-	uint32_t ret = read_compressed_uint32();
+	mdToken ret = read_compressed_uint32();
 	uint8_t token_type_flag = ret & 3;
 	CorTokenType token_type = (token_type_flag == 0) ? mdtModule : (token_type_flag == 1) ? mdtMethodDef : (token_type_flag == 2) ? mdtMemberRef : mdtMethodSpec;
 	return (ret >> 2) | token_type;
@@ -389,91 +389,81 @@ bool mdil_ctl_parser::dump_type_def()
 	return fine;
 }
 
-void mdil_ctl_parser::dump_type_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
+mdil_type_spec* mdil_ctl_parser::parse_type_spec()
 {
-	for (unsigned long i = 1; i < m_data.type_specs.size(); i++) {
-		auto type_spec = m_data.type_specs->at(i);
-		unsigned long pos = 0;
-		printf_s("TYPS(%04X)=TYPE(%04X) : ", i, type_spec);
-		m_pos = type_spec;
-		bool res = dump_type_spec();
-		if (!res) printf_s(" *ERROR*");
-		printf_s("\n");
-	}
-
-	printf_s("\n");
-}
-
-bool mdil_ctl_parser::dump_type_spec()
-{
-	bool fine = true;
-
 	uint8_t byte = read_byte();
 
-	switch (byte)
-	{
-	case ELEMENT_TYPE_VOID: printf_s("void"); break;
-	case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
-	case ELEMENT_TYPE_CHAR: printf_s("char"); break;
-	case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
-	case ELEMENT_TYPE_U1: printf_s("byte"); break;
-	case ELEMENT_TYPE_I2: printf_s("short"); break;
-	case ELEMENT_TYPE_U2: printf_s("ushort"); break;
-	case ELEMENT_TYPE_I4: printf_s("int"); break;
-	case ELEMENT_TYPE_U4: printf_s("uint"); break;
-	case ELEMENT_TYPE_I8: printf_s("long"); break;
-	case ELEMENT_TYPE_U8: printf_s("ulong"); break;
-	case ELEMENT_TYPE_R4: printf_s("float"); break;
-	case ELEMENT_TYPE_R8: printf_s("double"); break;
-	case ELEMENT_TYPE_STRING: printf_s("string"); break;
-	case ELEMENT_TYPE_PTR: fine = dump_type_spec(); printf_s("*");  break;
-	case ELEMENT_TYPE_BYREF: fine = dump_type_spec(); printf_s("@");break;
-	case ELEMENT_TYPE_VALUETYPE: printf_s("struct_%08X", read_compressed_type_token()); break;
-	case ELEMENT_TYPE_CLASS: printf_s("class_%08X", read_compressed_type_token()); break;
-	case ELEMENT_TYPE_VAR: printf_s("VAR_%04X", read_compressed_uint32()); break;
-	case ELEMENT_TYPE_ARRAY:
-		fine = dump_type_spec();
-		if (fine) {
+	switch (byte) {
+	case ELEMENT_TYPE_VOID:
+	case ELEMENT_TYPE_BOOLEAN:
+	case ELEMENT_TYPE_CHAR:
+	case ELEMENT_TYPE_I1:
+	case ELEMENT_TYPE_U1:
+	case ELEMENT_TYPE_I2:
+	case ELEMENT_TYPE_U2:
+	case ELEMENT_TYPE_I4:
+	case ELEMENT_TYPE_U4:
+	case ELEMENT_TYPE_I8:
+	case ELEMENT_TYPE_U8:
+	case ELEMENT_TYPE_R4:
+	case ELEMENT_TYPE_R8:
+	case ELEMENT_TYPE_STRING:
+	case ELEMENT_TYPE_I:
+	case ELEMENT_TYPE_U:
+	case ELEMENT_TYPE_FNPTR: // TODO
+	case ELEMENT_TYPE_OBJECT:
+		return new mdil_type_spec((CorElementType) byte);
+	case ELEMENT_TYPE_PTR:
+	case ELEMENT_TYPE_BYREF:
+	case ELEMENT_TYPE_TYPEDBYREF:
+		return new mdil_type_spec_with_child((CorElementType) byte, parse_type_spec());
+	case ELEMENT_TYPE_VALUETYPE:
+	case ELEMENT_TYPE_CLASS:
+		return new mdil_type_spec_with_token((CorElementType) byte, read_compressed_type_token());
+	case ELEMENT_TYPE_VAR:
+	case ELEMENT_TYPE_MVAR:
+		return new mdil_type_spec_with_number((CorElementType) byte, read_compressed_uint32());
+	case ELEMENT_TYPE_ARRAY: {
+		auto type = parse_type_spec();
+		if (type) {
 			uint32_t rank = read_compressed_uint32();
-			uint32_t bcount = read_compressed_uint32();
-			vector<uint32_t> bounds;
-			for (uint32_t i = 0; i < bcount; ++i) bounds.push_back(read_compressed_uint32());
-			uint32_t lbcount = read_compressed_uint32();
-			vector<uint32_t> lbounds;
-			for (uint32_t i = 0; i < lbcount; ++i) lbounds.push_back(read_compressed_uint32());
-			printf_s("[");
-			for (uint32_t i = 0; i < rank; ++i) {
-				if ((i < lbcount) && (lbounds[i] > 0)) printf_s("%d", lbounds[i]);
-				if (((i < lbcount) && (lbounds[i] > 0)) || (i < bcount)) printf_s(":");
-				if (i < bcount) printf_s("%d", bounds[i]);
-				if (i < (rank - 1)) printf_s(",");
-			}
-			printf_s("]");
-		}
-		break;
-	case ELEMENT_TYPE_GENERICINST:
-		fine = dump_type_spec();
-		if (fine) {
-			uint32_t count = read_compressed_uint32();
-			printf_s("<");
-			for (uint32_t i=0; i < count; ++i) {
-				fine = dump_type_spec();
-				if (i < (count-1)) printf_s(",");
-				if (!fine) break;
-			}
-			printf_s(">");
-		}
-		break;
-	case ELEMENT_TYPE_TYPEDBYREF: fine = dump_type_spec(); break;
-	case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
-	case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
-	case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
-	case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
-	case ELEMENT_TYPE_SZARRAY: fine = dump_type_spec();printf_s("[]"); break;
-	case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", byte, read_compressed_uint32());
-		break;
-	default: printf_s("#%02X#", byte); fine = false; break;
-	}
 
-	return fine;
+			uint32_t bcount = read_compressed_uint32();
+			vector<uint32_t> bounds(bcount);
+			for (uint32_t i = 0; i < bcount; ++i) bounds[i] = read_compressed_uint32();
+
+			uint32_t lbcount = read_compressed_uint32();
+			vector<uint32_t> lbounds(lbcount);
+			for (uint32_t i = 0; i < lbcount; ++i) lbounds[i] = read_compressed_uint32();
+
+			return new mdil_type_spec_array(type, rank, bounds, lbounds);
+		} else return new mdil_type_spec_array(nullptr, 0); // invalid
+	}
+	case ELEMENT_TYPE_SZARRAY:
+		return new mdil_type_spec_array(parse_type_spec(), 1);
+	case ELEMENT_TYPE_GENERICINST: {
+		auto type = parse_type_spec();
+		if (type != nullptr) {
+			uint32_t count = read_compressed_uint32();
+			auto args = vector<shared_ptr<mdil_type_spec>>(count);
+			for (uint32_t i=0; i < count; ++i) {
+				auto arg = parse_type_spec();
+				if (arg == nullptr) break;
+				args[i].reset(arg);
+			}
+			return new mdil_type_spec_generic(type, args);
+		} else return new mdil_type_spec_generic(nullptr); // invalid
+	}
+	default: return nullptr;
+	}
+}
+
+void mdil_ctl_parser::parse()
+{
+	m_data.type_specs.type_specs.resize(m_data.type_specs.raw.size());
+
+	for (unsigned long i = 1; i < m_data.type_specs.raw.size(); i++) {
+		m_pos = m_data.type_specs.raw->at(i);
+		m_data.type_specs.type_specs->at(i).reset(parse_type_spec());
+	}
 }

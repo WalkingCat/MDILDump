@@ -123,6 +123,63 @@ struct ExtMemberRef
 	ULONG	ordinal : 15;	// 32767 max fields or	methods in a type
 };
 
+template<typename T>
+class shared_vector : public std::shared_ptr<std::vector<T>> {
+public:
+	typename std::vector<T>::size_type size() const { return get() ? get()->size() : 0; }
+	void resize(typename std::vector<T>::size_type size) { if (get()) get()->resize(size); else reset(new std::vector<T>(size)); }
+};
+
+struct mdil_type_spec
+{
+	const CorElementType element_type;
+	mdil_type_spec(CorElementType _type) : element_type(_type) {}
+};
+
+struct mdil_type_spec_with_token : mdil_type_spec
+{
+	const mdToken token;
+	mdil_type_spec_with_token(const CorElementType _type, const mdToken _token) : mdil_type_spec(_type), token(_token) {}
+};
+
+struct mdil_type_spec_with_number : mdil_type_spec
+{
+	const uint32_t number;
+	mdil_type_spec_with_number(const CorElementType _type, const uint32_t _number) : mdil_type_spec(_type), number(_number) {}
+};
+
+struct mdil_type_spec_with_child : mdil_type_spec
+{
+	const std::shared_ptr<mdil_type_spec> child;
+	mdil_type_spec_with_child(const CorElementType _type, mdil_type_spec* _child) : mdil_type_spec(_type), child(_child) {}
+};
+
+struct mdil_type_spec_array : mdil_type_spec_with_child
+{
+	const uint32_t rank;
+	const std::vector<uint32_t> bounds;
+	const std::vector<uint32_t> lbounds;
+	mdil_type_spec_array(mdil_type_spec* _child, const uint32_t _rank)
+		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank) {}
+	mdil_type_spec_array(mdil_type_spec* _child, const uint32_t _rank, const std::vector<uint32_t>& _bounds, const std::vector<uint32_t>& _lbounds)
+		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank), bounds(_bounds), lbounds(_lbounds) {}
+};
+
+struct mdil_type_spec_generic : mdil_type_spec_with_child
+{
+	const std::vector<std::shared_ptr<mdil_type_spec>> type_arguments;
+	mdil_type_spec_generic(mdil_type_spec* _child)
+		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child) {}
+	mdil_type_spec_generic(mdil_type_spec* _child, const std::vector<std::shared_ptr<mdil_type_spec>>& _args)
+		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child), type_arguments(_args) {}
+};
+
+struct mdil_type_specs
+{
+	shared_vector<unsigned long> raw;
+	shared_vector<std::shared_ptr<mdil_type_spec>> type_specs;
+};
+
 struct mdil_instruction {
 	unsigned long offset;
 	unsigned long length;
@@ -138,13 +195,6 @@ struct mdil_instruction {
 		this->opcode = move(opcode);
 		this->operands = move(operands);
 	}
-};
-
-template<typename T>
-class shared_vector : public std::shared_ptr<std::vector<T>> {
-public:
-	typename std::vector<T>::size_type size() const { return get() ? get()->size() : 0; }
-	void resize(typename std::vector<T>::size_type size) { if (get()) get()->resize(size); else reset(new std::vector<T>(size)); }
 };
 
 struct mdil_method
@@ -165,7 +215,7 @@ struct mdil_method
 
 struct mdil_code
 {
-	shared_vector<unsigned char> data;
+	shared_vector<unsigned char> raw;
 	std::vector<mdil_method> methods;
 };
 
@@ -181,7 +231,7 @@ public:
 	shared_vector<ExtModRef>		ext_module_refs;
 	shared_vector<ExtTypeRef>		ext_type_refs;
 	shared_vector<ExtMemberRef>		ext_member_refs;
-	shared_vector<unsigned long>	type_specs;
+	mdil_type_specs					type_specs;
 	shared_vector<unsigned long>	method_specs;
 	shared_vector<unsigned long>	section_10;
 	shared_vector<char>				name_pool;

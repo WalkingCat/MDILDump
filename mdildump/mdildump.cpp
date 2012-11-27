@@ -136,6 +136,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::shared_ptr<console_dumper> dumper = std::make_shared<console_dumper>(data);
 	auto ctl_dumper = make_shared<mdil_ctl_parser>(data);
 
+	ctl_dumper->parse();
+
 	if (options & dumpHeader)			dumper->dump_mdil_header("MDIL Header");
 	if (options & dumpHeader2)			dumper->dump_mdil_header_2("MDIL Header 2");
 	if (options & dumpPlatformData)		dumper->dump_bytes(data.platform_data, "Platform Data");
@@ -146,7 +148,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (options & dumpExtModuleRefs)	dumper->dump_ext_module_refs("External Module References", "Offsets in Name Pool section");
 	if (options & dumpExtTypeRefs)		dumper->dump_ext_type_refs("External Type References", "Index in External Module References section, and an index");
 	if (options & dumpExtMemberRefs)	dumper->dump_ext_member_refs("External Member References", "Index in Type Spec or External Type References section, and an index");
-	if (options & dumpTypeSpecs)		ctl_dumper->dump_type_specs("Type Specs", "Offsets in Types section");
+	if (options & dumpTypeSpecs)		dumper->dump_type_specs("Type Specs", "Offsets in Types section");
 	if (options & dumpMethodSpecs)		dumper->dump_ulongs(data.method_specs, "Method Specs", "Offsets in Types Layout section");
 	if (options & dumpSection10)		dumper->dump_ulongs(data.section_10, "Section 10");
 	if (options & dumpNamePool)			dumper->dump_chars(data.name_pool, "Name Pool");
@@ -155,14 +157,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (options & dumpCode1) {
 		if (options & dumpCodeDasm)
 			for (auto m = begin(data.code_1.methods); m != end(data.code_1.methods); ++m) {
-				m->routine.swap(mdil_decoder(data.code_1.data->data() + m->offset + m->routine_offset, m->routine_size).decode());
+				m->routine.swap(mdil_decoder(data.code_1.raw->data() + m->offset + m->routine_offset, m->routine_size).decode());
 			}
 		dumper->dump_code(data.code_1, "Code 1");
 	}
 	if (options & dumpCode2) {
 		if (options & dumpCodeDasm)
 			for (auto m = begin(data.code_2.methods); m != end(data.code_2.methods); ++m) {
-				m->routine.swap(mdil_decoder(data.code_2.data->data() + m->offset + m->routine_offset, m->routine_size).decode());
+				m->routine.swap(mdil_decoder(data.code_2.raw->data() + m->offset + m->routine_offset, m->routine_size).decode());
 			}
 		dumper->dump_code(data.code_2, "Code 2");
 	}

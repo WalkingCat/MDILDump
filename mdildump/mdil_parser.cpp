@@ -171,32 +171,32 @@ std::string mdil_parser::parse(const char* filename, mdil_data& data) {
 			if (!file.read(data.ext_module_refs, data.header->extModRefsCount)) return g_file_reading_error;
 			if (!file.read(data.ext_type_refs, data.header->extTypeRefsCount)) return g_file_reading_error;
 			if (!file.read(data.ext_member_refs, data.header->extMemberRefsCount)) return g_file_reading_error;
-			if (!file.read(data.type_specs, data.header->typeSpecCount)) return g_file_reading_error;
+			if (!file.read(data.type_specs.raw, data.header->typeSpecCount)) return g_file_reading_error;
 			if (!file.read(data.method_specs, data.header->methodSpecCount)) return g_file_reading_error;
 			if (!file.read(data.section_10, data.header->section10Size)) return g_file_reading_error;
 			if (!file.read(data.name_pool, data.header->namePoolSize)) return g_file_reading_error;
 			if (!file.read(data.types, data.header->typeSize)) return g_file_reading_error;
 			if (!file.read(data.user_string_pool, data.header->userStringPoolSize)) return g_file_reading_error;
 
-			if (!file.read(data.code_1.data, data.header->code1Size)) return g_file_reading_error;
+			if (!file.read(data.code_1.raw, data.header->code1Size)) return g_file_reading_error;
 
 			DWORD code1_pos = 0;
-			if (data.code_1.data.size() >= 4) code1_pos += 4;
-			while (code1_pos < data.code_1.data.size()) {
+			if (data.code_1.raw.size() >= 4) code1_pos += 4;
+			while (code1_pos < data.code_1.raw.size()) {
 				DWORD routine_offset, routine_size, except;
-				DWORD length = parse_method(data.code_1.data->data() + code1_pos, &routine_offset, &routine_size, &except);
+				DWORD length = parse_method(data.code_1.raw->data() + code1_pos, &routine_offset, &routine_size, &except);
 				if (length > 0) data.code_1.methods.push_back(mdil_method(code1_pos, code1_pos, length, routine_offset, routine_size, except));
 				code1_pos += length;
 			}
 
-			if (!file.read(data.code_2.data, data.header->codeSize - data.header->code1Size)) return g_file_reading_error;
+			if (!file.read(data.code_2.raw, data.header->codeSize - data.header->code1Size)) return g_file_reading_error;
 
 			DWORD code2_pos = 0;
-			if (data.code_2.data.size() >= 4) code2_pos += 4;
-			while (code2_pos < data.code_2.data.size()) {
+			if (data.code_2.raw.size() >= 4) code2_pos += 4;
+			while (code2_pos < data.code_2.raw.size()) {
 				DWORD routine_offset, routine_size, except;
-				DWORD length = parse_method(data.code_2.data->data() + code2_pos, &routine_offset, &routine_size, &except);
-				if (length > 0) data.code_2.methods.push_back(mdil_method(code2_pos, data.code_1.data.size() + code2_pos, length, routine_offset, routine_size, except));
+				DWORD length = parse_method(data.code_2.raw->data() + code2_pos, &routine_offset, &routine_size, &except);
+				if (length > 0) data.code_2.methods.push_back(mdil_method(code2_pos, data.code_1.raw.size() + code2_pos, length, routine_offset, routine_size, except));
 				code2_pos += length;
 			}
 

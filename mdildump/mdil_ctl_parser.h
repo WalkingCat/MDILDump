@@ -4,7 +4,7 @@
 
 class mdil_ctl_parser
 {
-	const mdil_data& m_data;
+	mdil_data& m_data;
 
 	const unsigned char* m_buffer;
 	const unsigned long m_length;
@@ -15,16 +15,16 @@ class mdil_ctl_parser
 	uint32_t read_uint32_le();
 	int32_t read_compressed_int32();
 	uint32_t read_compressed_uint32();
-	uint32_t read_compressed_type_token();
-	uint32_t read_compressed_method_token();
+	mdToken read_compressed_type_token();
+	mdToken read_compressed_method_token();
 
 	bool dump_known_unknowns();
 	bool dump_type_def_members(uint32_t fieldCount, uint32_t methodCount, uint32_t interfaceCount);
 	bool dump_type_def();
-	bool dump_type_spec();
+	mdil_type_spec* parse_type_spec();
 public:
-	mdil_ctl_parser(const mdil_data& data) : m_data(data), m_buffer(m_data.types ? m_data.types->data() : nullptr), m_length(m_data.types.size()), m_pos(0), m_error(false) {}
+	mdil_ctl_parser(mdil_data& data) : m_data(data), m_buffer(m_data.types ? m_data.types->data() : nullptr), m_length(m_data.types.size()), m_pos(0), m_error(false) {}
 	void dump_type_map(const char* title = nullptr, const char* description = nullptr);
-	void dump_type_specs(const char* title = nullptr, const char* description = nullptr);
+	void parse();
 };
 

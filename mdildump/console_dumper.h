@@ -7,6 +7,7 @@ class console_dumper
 	const mdil_data& m_data;
 	void dump_bytes_int (const shared_vector<unsigned char>& data, size_t offset, size_t count);
 	std::unordered_map<unsigned long, std::string> ext_modules;
+	void dump_type_spec(mdil_type_spec* type_spec);
 public:
 	console_dumper(const mdil_data& data) : m_data(data) {}
 	void dump_mdil_header(const char* title = nullptr, const char* description = nullptr);
@@ -21,6 +22,7 @@ public:
 	void dump_ext_type_refs(const char* title = nullptr, const char* description = nullptr);
 	std::string format_ext_type_ref(unsigned long id);
 	void dump_ext_member_refs(const char* title = nullptr, const char* description = nullptr);
+	void dump_type_specs(const char* title = nullptr, const char* description = nullptr);
 	void dump_types(const char* title = nullptr, const char* description = nullptr);
 	void dump_code(const mdil_code& code, const char* title = nullptr, const char* description = nullptr);
 	void dump_debug_info (const shared_vector<unsigned char>& data, bool hasSig, const char* title = nullptr, const char* description = nullptr);

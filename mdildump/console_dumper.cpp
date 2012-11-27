@@ -327,7 +327,7 @@ void console_dumper::dump_types(const char* title, const char* description)
 		offsets[*i] = 1;
 	}
 
-	for (auto i = begin(*m_data.type_specs); i != end(*m_data.type_specs); ++i) {
+	for (auto i = begin(*m_data.type_specs.raw); i != end(*m_data.type_specs.raw); ++i) {
 		offsets[*i] = 2;
 	}
 
@@ -355,11 +355,11 @@ void console_dumper::dump_types(const char* title, const char* description)
 
 void console_dumper::dump_code( const mdil_code& code, const char* title, const char* description )
 {
-	print_vector_size(code.data, title, description);
+	print_vector_size(code.raw, title, description);
 
 	size_t pos = 0;
-	if (code.data.size() >= 4) {
-		unsigned long sig = * (unsigned long*) code.data->data();
+	if (code.raw.size() >= 4) {
+		unsigned long sig = * (unsigned long*) code.raw->data();
 		printf_s("Signature: %s\n", ulong_as_chars(sig).chars);
 		pos += 4;
 	}
@@ -369,8 +369,8 @@ void console_dumper::dump_code( const mdil_code& code, const char* title, const 
 	for (auto m = begin(code.methods); m != end(code.methods); ++m) {
 		printf_s("METHOD_%06X:\nSize = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
 			m->global_offset, m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
-		dump_bytes_int(code.data, m->offset, m->size);
-		if (!m->routine.empty()) dump_instructions(m->routine, code.data->data() + m->offset + m->routine_offset, m->routine_size);
+		dump_bytes_int(code.raw, m->offset, m->size);
+		if (!m->routine.empty()) dump_instructions(m->routine, code.raw->data() + m->offset + m->routine_offset, m->routine_size);
 		printf_s("\n");
 	}
 }
@@ -416,4 +416,79 @@ void console_dumper::dump_debug_info( const shared_vector<unsigned char>& data, 
 	if (pos < data.size()) dump_bytes_int(data, pos, data.size() - pos);
 
 	printf_s("\n");
+}
+
+void console_dumper::dump_type_spec( mdil_type_spec* type_spec )
+{
+	if (type_spec == nullptr) return;
+
+	switch (type_spec->element_type)
+	{
+	case ELEMENT_TYPE_VOID: printf_s("void"); break;
+	case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
+	case ELEMENT_TYPE_CHAR: printf_s("char"); break;
+	case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
+	case ELEMENT_TYPE_U1: printf_s("byte"); break;
+	case ELEMENT_TYPE_I2: printf_s("short"); break;
+	case ELEMENT_TYPE_U2: printf_s("ushort"); break;
+	case ELEMENT_TYPE_I4: printf_s("int"); break;
+	case ELEMENT_TYPE_U4: printf_s("uint"); break;
+	case ELEMENT_TYPE_I8: printf_s("long"); break;
+	case ELEMENT_TYPE_U8: printf_s("ulong"); break;
+	case ELEMENT_TYPE_R4: printf_s("float"); break;
+	case ELEMENT_TYPE_R8: printf_s("double"); break;
+	case ELEMENT_TYPE_STRING: printf_s("string"); break;
+	case ELEMENT_TYPE_PTR: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("*"); break;
+	case ELEMENT_TYPE_BYREF: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("@"); break;
+	case ELEMENT_TYPE_VALUETYPE: printf_s("struct_%08X", ((mdil_type_spec_with_number*)type_spec)->number); break;
+	case ELEMENT_TYPE_CLASS: printf_s("class_%08X", ((mdil_type_spec_with_token*)type_spec)->token); break;
+	case ELEMENT_TYPE_VAR: printf_s("VAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
+	case ELEMENT_TYPE_ARRAY: {
+		auto array = (mdil_type_spec_array*) type_spec;
+		dump_type_spec(array->child.get());
+		printf_s("[");
+		for (uint32_t i = 0; i < array->rank; ++i) {
+			if ((i < array->lbounds.size()) && (array->lbounds[i] > 0)) printf_s("%d", array->lbounds[i]);
+			if (((i < array->lbounds.size()) && (array->lbounds[i] > 0)) || (i < array->bounds.size())) printf_s(":");
+			if (i < array->bounds.size()) printf_s("%d", array->bounds[i]);
+			if (i < (array->rank - 1)) printf_s(",");
+		}
+		printf_s("]");
+		break;
+	}
+	case ELEMENT_TYPE_GENERICINST: {
+		auto inst = (mdil_type_spec_generic*) type_spec;
+		dump_type_spec(inst->child.get());
+		printf_s("<");
+		uint32_t count = inst->type_arguments.size();
+		for (uint32_t i=0; i < count; ++i) {
+			dump_type_spec(inst->type_arguments[i].get());
+			if (i < (count-1)) printf_s(",");
+		}
+		printf_s(">");
+		break;
+	}
+	case ELEMENT_TYPE_TYPEDBYREF: dump_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get()); break;
+	case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
+	case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
+	case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
+	case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
+	case ELEMENT_TYPE_SZARRAY: dump_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get());printf_s("[]"); break;
+	case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
+	default: printf_s("#%02X#", type_spec->element_type); break;
+	}
+}
+
+void console_dumper::dump_type_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
+{
+	if (m_data.type_specs.type_specs && m_data.type_specs.raw)  {
+		print_vector_size(m_data.type_specs.type_specs, title, description);
+
+		for (unsigned long i = 1; i < m_data.type_specs.type_specs.size(); i++) {
+			printf_s("TYPS(%04X)=TYPE(%04X) : ", i, m_data.type_specs.raw->at(i));
+			dump_type_spec(m_data.type_specs.type_specs->at(i).get());
+			printf_s("\n");
+		}
+		printf_s("\n");
+	} else dump_ulongs(m_data.type_specs.raw, title, description);
 }
