@@ -394,70 +394,85 @@ void mdil_ctl_parser::dump_type_specs( const char* title /*= nullptr*/, const ch
 	for (unsigned long i = 1; i < m_data.type_specs.size(); i++) {
 		auto type_spec = m_data.type_specs->at(i);
 		unsigned long pos = 0;
-		printf_s("TYPS(%04X)=TYPE(%04X)\n", i, type_spec);
+		printf_s("TYPS(%04X)=TYPE(%04X) : ", i, type_spec);
 		m_pos = type_spec;
 		bool res = dump_type_spec();
-		if (!res) printf_s("*ERROR*\n");
-		printf_s(" (size=%04X, next=%04X)\n", m_pos - type_spec, m_pos);
+		if (!res) printf_s(" *ERROR*");
 		printf_s("\n");
 	}
 
 	printf_s("\n");
 }
 
-bool mdil_ctl_parser::dump_type_spec(uint32_t level)
+bool mdil_ctl_parser::dump_type_spec()
 {
 	bool fine = true;
 
 	uint8_t byte = read_byte();
 
-	for (uint32_t l = 0; l < level; ++l) printf_s("\t");
 	switch (byte)
 	{
-	case 0x01: printf_s("\tVoid\n"); break;
-	case 0x02: printf_s("\tBoolean\n"); break;
-	case 0x03: printf_s("\tChar\n"); break;
-	case 0x04: printf_s("\tSByte\n"); break;
-	case 0x05: printf_s("\tByte\n"); break;
-	case 0x06: printf_s("\tShort\n"); break;
-	case 0x07: printf_s("\tUShort\n"); break;
-	case 0x08: printf_s("\tInt\n"); break;
-	case 0x09: printf_s("\tUInt\n"); break;
-	case 0x0a: printf_s("\tLong\n"); break;
-	case 0x0b: printf_s("\tULong\n"); break;
-	case 0x0c: printf_s("\tFloat\n"); break;
-	case 0x0d: printf_s("\tDouble\n"); break;
-	case 0x0e: printf_s("\tString\n"); break;
-	case 0x0F: printf_s("\tUntraced Pointer\n"); dump_type_spec(level); break;
-	case 0x10: printf_s("\tReference\n"); dump_type_spec(level); break;
-	case 0x11: printf_s("\tStruct/Enum %08X\n", read_compressed_type_token()); break;
-	case 0x12: printf_s("\tClass %08X\n", read_compressed_type_token()); break;
-	case 0x15:
-		printf_s("\tGeneric\n");
-		fine = dump_type_spec(level);
+	case ELEMENT_TYPE_VOID: printf_s("void"); break;
+	case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
+	case ELEMENT_TYPE_CHAR: printf_s("char"); break;
+	case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
+	case ELEMENT_TYPE_U1: printf_s("byte"); break;
+	case ELEMENT_TYPE_I2: printf_s("short"); break;
+	case ELEMENT_TYPE_U2: printf_s("ushort"); break;
+	case ELEMENT_TYPE_I4: printf_s("int"); break;
+	case ELEMENT_TYPE_U4: printf_s("uint"); break;
+	case ELEMENT_TYPE_I8: printf_s("long"); break;
+	case ELEMENT_TYPE_U8: printf_s("ulong"); break;
+	case ELEMENT_TYPE_R4: printf_s("float"); break;
+	case ELEMENT_TYPE_R8: printf_s("double"); break;
+	case ELEMENT_TYPE_STRING: printf_s("string"); break;
+	case ELEMENT_TYPE_PTR: fine = dump_type_spec(); printf_s("*");  break;
+	case ELEMENT_TYPE_BYREF: fine = dump_type_spec(); printf_s("@");break;
+	case ELEMENT_TYPE_VALUETYPE: printf_s("struct_%08X", read_compressed_type_token()); break;
+	case ELEMENT_TYPE_CLASS: printf_s("class_%08X", read_compressed_type_token()); break;
+	case ELEMENT_TYPE_VAR: printf_s("VAR_%04X", read_compressed_uint32()); break;
+	case ELEMENT_TYPE_ARRAY:
+		fine = dump_type_spec();
 		if (fine) {
-			uint32_t count = read_compressed_uint32();
-			for (uint32_t l = 0; l < level; ++l) printf_s("\t");
-			printf_s("\tType Arguments: %04d\n", count);
-			for (uint32_t i=0; i < count; ++i) {
-				fine = dump_type_spec(level+1);
-				if (!fine) break;
+			uint32_t rank = read_compressed_uint32();
+			uint32_t bcount = read_compressed_uint32();
+			vector<uint32_t> bounds;
+			for (uint32_t i = 0; i < bcount; ++i) bounds.push_back(read_compressed_uint32());
+			uint32_t lbcount = read_compressed_uint32();
+			vector<uint32_t> lbounds;
+			for (uint32_t i = 0; i < lbcount; ++i) lbounds.push_back(read_compressed_uint32());
+			printf_s("[");
+			for (uint32_t i = 0; i < rank; ++i) {
+				if ((i < lbcount) && (lbounds[i] > 0)) printf_s("%d", lbounds[i]);
+				if (((i < lbcount) && (lbounds[i] > 0)) || (i < bcount)) printf_s(":");
+				if (i < bcount) printf_s("%d", bounds[i]);
+				if (i < (rank - 1)) printf_s(",");
 			}
+			printf_s("]");
 		}
 		break;
-	case 0x18: printf_s("\tIntPtr\n"); break;
-	case 0x19: printf_s("\tUIntPtr\n"); break;
-	case 0x1b: printf_s("\tFunction Pointer\n"); break;
-	case 0x13:
-	case 0x1c: printf_s("\tObject ?? %008X\n", read_compressed_type_token()); break;
-	case 0x1d: printf_s("\tVector\n"); dump_type_spec(level); break;
-	case 0x1e:
-		printf_s("\tKind_%02X %08X\n", byte, read_compressed_type_token()); // known unknowns
+	case ELEMENT_TYPE_GENERICINST:
+		fine = dump_type_spec();
+		if (fine) {
+			uint32_t count = read_compressed_uint32();
+			printf_s("<");
+			for (uint32_t i=0; i < count; ++i) {
+				fine = dump_type_spec();
+				if (i < (count-1)) printf_s(",");
+				if (!fine) break;
+			}
+			printf_s(">");
+		}
 		break;
-	default:
-		printf_s("\tUnknown %02X\n", byte);
-		fine = false;
+	case ELEMENT_TYPE_TYPEDBYREF: fine = dump_type_spec(); break;
+	case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
+	case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
+	case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
+	case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
+	case ELEMENT_TYPE_SZARRAY: fine = dump_type_spec();printf_s("[]"); break;
+	case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", byte, read_compressed_uint32());
 		break;
+	default: printf_s("#%02X#", byte); fine = false; break;
 	}
 
 	return fine;

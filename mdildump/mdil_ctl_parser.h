@@ -21,7 +21,7 @@ class mdil_ctl_parser
 	bool dump_known_unknowns();
 	bool dump_type_def_members(uint32_t fieldCount, uint32_t methodCount, uint32_t interfaceCount);
 	bool dump_type_def();
-	bool dump_type_spec(uint32_t level = 0);
+	bool dump_type_spec();
 public:
 	mdil_ctl_parser(const mdil_data& data) : m_data(data), m_buffer(m_data.types ? m_data.types->data() : nullptr), m_length(m_data.types.size()), m_pos(0), m_error(false) {}
 	void dump_type_map(const char* title = nullptr, const char* description = nullptr);
