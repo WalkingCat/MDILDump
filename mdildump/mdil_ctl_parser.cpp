@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "mdil_ctl_parser.h"
 
+using namespace std;
+
 enum CompactLayoutToken
 {
 	INVALID,
@@ -38,6 +40,11 @@ enum CompactLayoutToken
 	RUNTIME_EXPORT_METHOD
 };
 
+uint8_t mdil_ctl_parser::read_byte()
+{
+	return m_buffer[m_pos++];
+}
+
 uint32_t mdil_ctl_parser::read_uint32_le()
 {
 	unsigned long ret = m_buffer[m_pos] + (m_buffer[m_pos+1] << 8) + (m_buffer[m_pos+2] << 16) + (m_buffer[m_pos+3] << 24);
@@ -73,11 +80,19 @@ uint32_t mdil_ctl_parser::read_compressed_uint32()
 	return ret;
 }
 
-uint32_t mdil_ctl_parser::read_compressed_token()
+uint32_t mdil_ctl_parser::read_compressed_type_token()
 {
 	uint32_t ret = read_compressed_uint32();
 	uint8_t token_type_flag = ret & 3;
 	CorTokenType token_type = (token_type_flag == 0) ? mdtModule : (token_type_flag == 1) ? mdtTypeDef : (token_type_flag == 2) ? mdtTypeRef : mdtTypeSpec;
+	return (ret >> 2) | token_type;
+}
+
+uint32_t mdil_ctl_parser::read_compressed_method_token()
+{
+	uint32_t ret = read_compressed_uint32();
+	uint8_t token_type_flag = ret & 3;
+	CorTokenType token_type = (token_type_flag == 0) ? mdtModule : (token_type_flag == 1) ? mdtMethodDef : (token_type_flag == 2) ? mdtMemberRef : mdtMethodSpec;
 	return (ret >> 2) | token_type;
 }
 
@@ -90,24 +105,9 @@ void mdil_ctl_parser::dump_type_map( const char* title /*= nullptr*/, const char
 		if (type_offset == 0) continue;
 		printf_s("TYPM(%04X)=TYPE(%04X)\n", i, type_offset);
 		m_pos = type_offset;
-		bool res = dump_ctl_type();
+		bool res = dump_type_def();
 		if (!res) printf_s("*ERROR*\n");
 		printf_s("\n");
-	}
-
-	printf_s("\n");
-}
-
-void mdil_ctl_parser::dump_type_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
-{
-	for (unsigned long i = 1; i < m_data.type_specs.size(); i++) {
-		auto type_spec = m_data.type_specs->at(i);
-		unsigned long pos = 0;
-		printf_s("TYPS(%04X)=TYPE(%04X) ", i, type_spec);
-		m_pos = type_spec;
-		bool res = dump_cor_type();
-		if (!res) printf_s(" ERR");
-		printf_s(" (size=%04X, next=%04X)\n", m_pos - type_spec, m_pos);
 	}
 
 	printf_s("\n");
@@ -124,7 +124,7 @@ void ctl_dump_flags( uint32_t flags )
 	}
 }
 
-bool mdil_ctl_parser::dump_ctl_type_members( uint32_t fieldCount, uint32_t methodCount, uint32_t interfaceCount )
+bool mdil_ctl_parser::dump_type_def_members( uint32_t fieldCount, uint32_t methodCount, uint32_t interfaceCount )
 {
 	static const uint32_t field_encodings[] = { 0x0112, 0x1112, 0x0608, 0x0108, 0x0102, 0x0312, 0x0612, 0x1108,
 												0x0308, 0x1612, 0x0111, 0x1312, 0x0618, 0x0309, 0x0609, 0x0311, };
@@ -176,6 +176,8 @@ bool mdil_ctl_parser::dump_ctl_type_members( uint32_t fieldCount, uint32_t metho
 		printf_s("\tMethod %d\n", i);
 		bool go_on = false;
 		do {
+			dump_known_unknowns();
+
 			go_on = false;
 			uint8_t byte = m_buffer[m_pos++];
 			if (byte == ADVANCE_METHODDEF) {
@@ -231,139 +233,232 @@ bool mdil_ctl_parser::dump_ctl_type_members( uint32_t fieldCount, uint32_t metho
 		if (!fine) break;
 	}
 
+	if (fine) for (uint32_t i = 0; i < interfaceCount; i++) {
+		printf_s("\tInterface %d\n", i);
+
+		uint8_t byte = read_byte();
+
+		if (byte == IMPLEMENT_INTERFACE) {
+			printf_s("\t\tImplement Interface = %08X\n", read_compressed_type_token());
+		} else {
+			printf_s("\t\tUnknown %02X\n", byte);
+			fine = false;
+		}
+
+		if (!fine) break;
+	}
+
+	if (fine) {
+		bool go_on = true;
+
+		do {
+			go_on = true;
+
+			uint8_t byte = m_buffer[m_pos]; // peeking
+
+			unique_ptr<int32_t> diff;
+			if (byte == ADVANCE_METHODDEF) {
+				m_pos++;
+				diff.reset(new int32_t(read_compressed_int32()));
+				byte = m_buffer[m_pos]; // peeking
+			} else if ((byte >= ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= ADVANCE_METHODDEF_SHORT_PLUS_8)) {
+				m_pos++;
+				diff.reset(new int32_t(byte - ADVANCE_METHODDEF_SHORT_0));
+				byte = m_buffer[m_pos]; // peeking
+			}
+
+			if (byte == IMPLEMENT_INTERFACE_METHOD) {
+				m_pos++;
+				printf_s("\tImplement Interface Method\n");
+				if (diff) printf_s("\t\tAdvance Diff = %04X\n", *diff);
+				printf_s("\t\tInterface Method = %08X\n", read_compressed_method_token());
+			} else go_on = false;
+
+		} while (go_on);
+	}
+
 	return fine;
 }
 
-bool mdil_ctl_parser::dump_ctl_type()
+
+bool mdil_ctl_parser::dump_known_unknowns()
 {
-	bool ret = true;
-
-	bool go_on = false;
-	do {
-		go_on = false;
-
-		uint8_t byte = m_buffer[m_pos++];
-		switch (byte)
-		{
-		case ADVANCE_ENCLOSING_TYPEDEF:
-			printf_s("Advance Diff = %04X\n", read_compressed_uint32());
-			go_on = true;
-			break;
-		case START_TYPE:
-			{
-				printf_s("Start\n");
-				printf_s("Type Attributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
-				printf_s("Base = %08X\n", read_compressed_token());
-				uint32_t interfaceCount = read_compressed_uint32();
-				printf_s("Interfaces Count = %d\n", interfaceCount);
-				uint32_t fieldCount = read_compressed_uint32();
-				printf_s("Field Count = %d\n", fieldCount);
-				uint32_t methodCount = read_compressed_uint32();
-				printf_s("Method Count = %d\n", methodCount);
-				printf_s("New Virtual Method Count = %d\n", read_compressed_uint32());
-				printf_s("Override Virtual Method Count = %d\n", read_compressed_uint32());
-				go_on = dump_ctl_type_members(fieldCount, methodCount, interfaceCount);
-				break;
-			}
-		case SMALL_START_TYPE:
-			{
-				printf_s("Small Start\n");
-				printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
-				printf_s("Base = %08X\n", read_compressed_token());
-				uint32_t counts = read_compressed_uint32();
-				printf_s("Field Count = %d\n", counts & 7);
-				printf_s("Method Count = %d\n", counts >> 3);
-				go_on = dump_ctl_type_members(counts & 7, counts >> 3, 0);
-				break;
-			}
-		case SIMPLE_START_TYPE:
-			{
-				printf_s("Simple Start\n");
-				printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
-				printf_s("Base = %08X\n", read_compressed_token());
-				uint32_t fieldCount = read_compressed_uint32();
-				printf_s("Field Count = %d\n", fieldCount);
-				uint32_t methodCount = read_compressed_uint32();
-				printf_s("Method Count = %d\n", methodCount);
-				go_on = dump_ctl_type_members(fieldCount, methodCount, 0);
-				break;
-			}
-		case MODEST_START_TYPE:
-			{
-				printf_s("Modest Start\n");
-				printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
-				printf_s("Base = %08X\n", read_compressed_token());
-				uint32_t fieldCount = read_compressed_uint32();
-				printf_s("Field Count = %d\n", fieldCount);
-				uint32_t methodCount = read_compressed_uint32();
-				printf_s("Method Count = %d\n", methodCount);
-				uint32_t counts = read_compressed_uint32();
-				printf_s("Interfaces Count = %d\n", counts & 3);
-				printf_s("New Virtual Method Count = %d\n", (counts >> 2) & 3);
-				printf_s("Override Virtual Method Count = %d\n", counts >> 4);
-				go_on = dump_ctl_type_members(fieldCount, methodCount, counts & 3);
-				break;
-			}
-		case END_TYPE:  printf_s("End\n", byte); break;
-		default: {
-			if ((byte == 0x6a) && (m_buffer[m_pos] == 0x6f)) {
-				printf_s("6A 6F %02X %02X; what's this ?\n", m_buffer[m_pos+1], m_buffer[m_pos+2]);
-				m_pos += 3;
-				go_on = true;
-				break;
-			}
-			printf_s("Unknown %02X\n", byte); ret = false; break;
-		}
-		}
-	} while (go_on);
-
-	return ret;
+	while (true) {
+		uint8_t byte = m_buffer[m_pos];
+		if (byte == 0x6a) {
+			printf_s("6A ; what's this ?\n");
+			m_pos += 1;
+		} else if (byte == 0x6f) {
+			printf_s("6F %02X %02X ; what's this ?\n", m_buffer[m_pos+1], m_buffer[m_pos+2]);
+			m_pos += 3;
+		} else if (byte == 0xe5) {
+			printf_s("E5 %02X ; what's this ?\n", m_buffer[m_pos+1]);
+			m_pos += 2;
+		} else if (byte == 0x25) {
+			printf_s("25 %02X ; what's this ?\n", m_buffer[m_pos+1]);
+			m_pos += 2;
+		} else break;
+	}
+	return true;
 }
 
-bool mdil_ctl_parser::dump_cor_type()
+bool mdil_ctl_parser::dump_type_def()
 {
-	bool ret = true;
+	bool fine = true;
 
-	uint8_t type = m_buffer[m_pos++];
-	switch (type)
-	{
-	case ELEMENT_TYPE_VOID: printf_s("void"); break;
-	case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
-	case ELEMENT_TYPE_CHAR: printf_s("char"); break;
-	case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
-	case ELEMENT_TYPE_U1: printf_s("byte"); break;
-	case ELEMENT_TYPE_I2: printf_s("short"); break;
-	case ELEMENT_TYPE_U2: printf_s("ushort"); break;
-	case ELEMENT_TYPE_I4: printf_s("int"); break;
-	case ELEMENT_TYPE_U4: printf_s("uint"); break;
-	case ELEMENT_TYPE_I8: printf_s("long"); break;
-	case ELEMENT_TYPE_U8: printf_s("ulong"); break;
-	case ELEMENT_TYPE_R4: printf_s("float"); break;
-	case ELEMENT_TYPE_R8: printf_s("double"); break;
-	case ELEMENT_TYPE_STRING: printf_s("string"); break;
-	case ELEMENT_TYPE_TYPEDBYREF: printf_s("byref"); break;
-	case ELEMENT_TYPE_U: printf_s("uintptr"); break;
-	case ELEMENT_TYPE_I: printf_s("intptr"); break;
-	case ELEMENT_TYPE_OBJECT:  printf_s("object"); break;
-	case ELEMENT_TYPE_VALUETYPE: printf_s("struct"); printf_s("(%08X)", read_compressed_token()); break;
-	case ELEMENT_TYPE_CLASS: printf_s("class"); printf_s("(%08X)", read_compressed_token()); break;
-	case ELEMENT_TYPE_VAR: printf_s("val"); printf_s("(%08X)", read_compressed_uint32()); break;
-	case ELEMENT_TYPE_GENERICINST:
-		printf_s("g*");
-		if (dump_cor_type()) {
-			uint32_t count = read_compressed_uint32();
-			printf_s("[%d]", count);
-			printf_s("<");
-			for (uint32_t i = 0; i < count; i++) {
-				if (!dump_cor_type()) { ret = false; break; }
-				else { if (i < (count - 1)) printf_s(", "); }
-			}
-			printf_s(">");
-		} else ret = false;
-		break;
-	case ELEMENT_TYPE_MVAR: printf_s("mval"); printf_s("(%08X)", read_compressed_uint32()); break;
-	default: printf_s("unknown(%X)", type); ret = false; break;
+	uint8_t byte = read_byte();
+
+	if ((byte == 0x6a) && (m_buffer[m_pos] == 0x6f)) {
+		printf_s("6A 6F %02X %02X; what's this ?\n", m_buffer[m_pos+1], m_buffer[m_pos+2]);
+		m_pos += 3;
+		byte = read_byte();
 	}
 
-	return ret;
+	if (byte == ADVANCE_ENCLOSING_TYPEDEF) {
+		printf_s("Advance Diff = %04X\n", read_compressed_uint32());
+		byte = read_byte();
+	}
+
+	switch (byte)
+	{
+	case START_TYPE:
+		{
+			printf_s("Start\n");
+			printf_s("Type Attributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
+			printf_s("Base = %08X\n", read_compressed_type_token());
+			uint32_t interfaceCount = read_compressed_uint32();
+			printf_s("Interfaces Count = %d\n", interfaceCount);
+			uint32_t fieldCount = read_compressed_uint32();
+			printf_s("Field Count = %d\n", fieldCount);
+			uint32_t methodCount = read_compressed_uint32();
+			printf_s("Method Count = %d\n", methodCount);
+			printf_s("New Virtual Method Count = %d\n", read_compressed_uint32());
+			printf_s("Override Virtual Method Count = %d\n", read_compressed_uint32());
+			fine = dump_type_def_members(fieldCount, methodCount, interfaceCount);
+			break;
+		}
+	case SMALL_START_TYPE:
+		{
+			printf_s("Small Start\n");
+			printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
+			printf_s("Base = %08X\n", read_compressed_type_token());
+			uint32_t counts = read_compressed_uint32();
+			printf_s("Field Count = %d\n", counts & 7);
+			printf_s("Method Count = %d\n", counts >> 3);
+			fine = dump_type_def_members(counts & 7, counts >> 3, 0);
+			break;
+		}
+	case SIMPLE_START_TYPE:
+		{
+			printf_s("Simple Start\n");
+			printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
+			printf_s("Base = %08X\n", read_compressed_type_token());
+			uint32_t fieldCount = read_compressed_uint32();
+			printf_s("Field Count = %d\n", fieldCount);
+			uint32_t methodCount = read_compressed_uint32();
+			printf_s("Method Count = %d\n", methodCount);
+			fine = dump_type_def_members(fieldCount, methodCount, 0);
+			break;
+		}
+	case MODEST_START_TYPE:
+		{
+			printf_s("Modest Start\n");
+			printf_s("TypeAttributes = "); ctl_dump_flags(read_compressed_uint32()); printf_s("\n");
+			printf_s("Base = %08X\n", read_compressed_type_token());
+			uint32_t fieldCount = read_compressed_uint32();
+			printf_s("Field Count = %d\n", fieldCount);
+			uint32_t methodCount = read_compressed_uint32();
+			printf_s("Method Count = %d\n", methodCount);
+			uint32_t counts = read_compressed_uint32();
+			printf_s("Interfaces Count = %d\n", counts & 3);
+			printf_s("New Virtual Method Count = %d\n", (counts >> 2) & 3);
+			printf_s("Override Virtual Method Count = %d\n", counts >> 4);
+			fine = dump_type_def_members(fieldCount, methodCount, counts & 3);
+			break;
+		}
+	default: printf_s("Unknown %02X\n", byte); fine = false; break;
+	}
+
+	if (fine) {
+		byte = read_byte();
+		if (byte == END_TYPE) printf_s("End\n", byte);
+		else {  printf_s("Unknown %02X\n", byte); fine = false; }
+	}
+
+
+	return fine;
+}
+
+void mdil_ctl_parser::dump_type_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
+{
+	for (unsigned long i = 1; i < m_data.type_specs.size(); i++) {
+		auto type_spec = m_data.type_specs->at(i);
+		unsigned long pos = 0;
+		printf_s("TYPS(%04X)=TYPE(%04X)\n", i, type_spec);
+		m_pos = type_spec;
+		bool res = dump_type_spec();
+		if (!res) printf_s("*ERROR*\n");
+		printf_s(" (size=%04X, next=%04X)\n", m_pos - type_spec, m_pos);
+		printf_s("\n");
+	}
+
+	printf_s("\n");
+}
+
+bool mdil_ctl_parser::dump_type_spec(uint32_t level)
+{
+	bool fine = true;
+
+	uint8_t byte = read_byte();
+
+	for (uint32_t l = 0; l < level; ++l) printf_s("\t");
+	switch (byte)
+	{
+	case 0x01: printf_s("\tVoid\n"); break;
+	case 0x02: printf_s("\tBoolean\n"); break;
+	case 0x03: printf_s("\tChar\n"); break;
+	case 0x04: printf_s("\tSByte\n"); break;
+	case 0x05: printf_s("\tByte\n"); break;
+	case 0x06: printf_s("\tShort\n"); break;
+	case 0x07: printf_s("\tUShort\n"); break;
+	case 0x08: printf_s("\tInt\n"); break;
+	case 0x09: printf_s("\tUInt\n"); break;
+	case 0x0a: printf_s("\tLong\n"); break;
+	case 0x0b: printf_s("\tULong\n"); break;
+	case 0x0c: printf_s("\tFloat\n"); break;
+	case 0x0d: printf_s("\tDouble\n"); break;
+	case 0x0e: printf_s("\tString\n"); break;
+	case 0x0F: printf_s("\tUntraced Pointer\n"); dump_type_spec(level); break;
+	case 0x10: printf_s("\tReference\n"); dump_type_spec(level); break;
+	case 0x11: printf_s("\tStruct/Enum %08X\n", read_compressed_type_token()); break;
+	case 0x12: printf_s("\tClass %08X\n", read_compressed_type_token()); break;
+	case 0x15:
+		printf_s("\tGeneric\n");
+		fine = dump_type_spec(level);
+		if (fine) {
+			uint32_t count = read_compressed_uint32();
+			for (uint32_t l = 0; l < level; ++l) printf_s("\t");
+			printf_s("\tType Arguments: %04d\n", count);
+			for (uint32_t i=0; i < count; ++i) {
+				fine = dump_type_spec(level+1);
+				if (!fine) break;
+			}
+		}
+		break;
+	case 0x18: printf_s("\tIntPtr\n"); break;
+	case 0x19: printf_s("\tUIntPtr\n"); break;
+	case 0x1b: printf_s("\tFunction Pointer\n"); break;
+	case 0x13:
+	case 0x1c: printf_s("\tObject ?? %008X\n", read_compressed_type_token()); break;
+	case 0x1d: printf_s("\tVector\n"); dump_type_spec(level); break;
+	case 0x1e:
+		printf_s("\tKind_%02X %08X\n", byte, read_compressed_type_token()); // known unknowns
+		break;
+	default:
+		printf_s("\tUnknown %02X\n", byte);
+		fine = false;
+		break;
+	}
+
+	return fine;
 }
