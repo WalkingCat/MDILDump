@@ -100,6 +100,10 @@ void mdil_ctl_parser::dump_type_map( const char* title /*= nullptr*/, const char
 {
 //	print_vector_size(m_data.type_map, title, description);
 
+	current_type_token = mdTypeDefNil;
+	current_field_token = mdFieldDefNil;
+	current_method_token = mdMethodDefNil;
+
 	for (unsigned long i = 1; i < m_data.type_map.size(); i++) {
 		auto type_offset = m_data.type_map->at(i);
 		if (type_offset == 0) continue;
@@ -124,12 +128,47 @@ void ctl_dump_flags( uint32_t flags )
 	}
 }
 
+const char* format_element_type(CorElementType type) {
+	switch (type)
+	{
+	case ELEMENT_TYPE_VOID: return "void";
+	case ELEMENT_TYPE_BOOLEAN: return "bool";
+	case ELEMENT_TYPE_CHAR: return "char";
+	case ELEMENT_TYPE_I1: return "sbyte";
+	case ELEMENT_TYPE_U1: return "byte";
+	case ELEMENT_TYPE_I2: return "short";
+	case ELEMENT_TYPE_U2: return "ushort";
+	case ELEMENT_TYPE_I4: return "int";
+	case ELEMENT_TYPE_U4: return "uint";
+	case ELEMENT_TYPE_I8: return "long";
+	case ELEMENT_TYPE_U8: return "ulong";
+	case ELEMENT_TYPE_R4: return "float";
+	case ELEMENT_TYPE_R8: return "double";
+	case ELEMENT_TYPE_STRING: return "string";
+	case ELEMENT_TYPE_PTR: return "*";
+	case ELEMENT_TYPE_BYREF: return "@";
+	case ELEMENT_TYPE_VALUETYPE: return "VALUETYPE";
+	case ELEMENT_TYPE_CLASS: return "CLASS";
+	case ELEMENT_TYPE_VAR: return "VAR";
+	case ELEMENT_TYPE_ARRAY: return "ARRAY";
+	case ELEMENT_TYPE_GENERICINST: return "GENERICINST";
+	case ELEMENT_TYPE_TYPEDBYREF:  return "TYPEDBYREF";
+	case ELEMENT_TYPE_I: return "IntPtr";
+	case ELEMENT_TYPE_U: return "UIntPtr";
+	case ELEMENT_TYPE_FNPTR: return "FNPTR";
+	case ELEMENT_TYPE_OBJECT: return "object";
+	case ELEMENT_TYPE_SZARRAY: return "SZARRAY";
+	case ELEMENT_TYPE_MVAR:	return "MVAR";
+	default: return "####";
+	}
+}
+
 bool mdil_ctl_parser::dump_type_def_members( uint32_t fieldCount, uint32_t methodCount, uint32_t interfaceCount )
 {
 	static const uint32_t field_encodings[] = { 0x0112, 0x1112, 0x0608, 0x0108, 0x0102, 0x0312, 0x0612, 0x1108,
 												0x0308, 0x1612, 0x0111, 0x1312, 0x0618, 0x0309, 0x0609, 0x0311, };
-	static const char* field_storage[] = { "Instance", "Static", "ThreadLocal", "ContextLocal", "RVA" };
-	static const char* field_protection[] = { "Private Scope", "Private", "Family and Assembly", "Assembly", "Family", "Family or Assembly", "Public" };
+	static const char* field_storage[] = { "", "static ", "/*ThreadLocal*/ ", "/*ContextLocal*/ ", "/*RVA*/ static " };
+	static const char* field_protection[] = { "private /*scope*/ ", "private ", "/*Fam_and_Assem*/ ", "internal ", "protected ", "protected internal ", "public " };
 
 	bool fine = true;
 
@@ -139,37 +178,50 @@ bool mdil_ctl_parser::dump_type_def_members( uint32_t fieldCount, uint32_t metho
 	}
 
 	for (uint32_t i = 0; i < fieldCount; i++) {
-		printf_s("\tField %d\n", i);
-		bool go_on = false;
-		do {
-			go_on = false;
-			uint8_t byte = m_buffer[m_pos++];
-			if (byte == ADVANCE_FIELDDEF) {
-				printf_s("\t\tAdvance Diff = %04X\n", read_compressed_int32());
-				go_on = true;
-			} else if (byte == FIELD_OFFSET) {
-				printf_s("\t\tExplicit Offset = %04X\n", read_compressed_uint32());
-			} else if ((byte >= ADVANCE_FIELDDEF_SHORT_MINUS_8) && (byte <= ADVANCE_FIELDDEF_SHORT_PLUS_8)) {
-				printf_s("\t\tAdvance Diff = %04X\n", byte - ADVANCE_FIELDDEF_SHORT_0);
-				go_on = true;
-			} else if ((byte >= FIELD_SIMPLE) && (byte  < FIELD_MAX)) {
-				printf_s("\t\tEncoding Index = %04X\n", byte - FIELD_SIMPLE);
-				uint32_t encoding = field_encodings[byte - FIELD_SIMPLE];
-				printf_s("\t\tStorage = %s\n", field_storage[encoding >> 12]);
-				printf_s("\t\tProtection = %s\n", field_protection[(encoding >> 8) & 0xf]);
-				printf_s("\t\tType = %04X\n", encoding & 0xff);
-			} else if ((byte >= FIELD_INSTANCE) && (byte <= FIELD_RVA)) {
-				printf_s("\t\tStorage = %s\n", field_storage[byte - FIELD_INSTANCE]);
-				uint8_t b = m_buffer[m_pos++];
-				printf_s("\t\tProtection = %s\n", field_protection[b >> 5]);
-				printf_s("\t\tType = %04X\n", b & 0x1F);
-			} else {
-				printf_s("\t\tUnknown %02X\n", byte);
-				fine = false;
-			}
-		} while (go_on);
+		mdil_type_def_field field;
 
-		if (!fine) break;
+		field.token = current_field_token + 1;
+
+		uint8_t byte = m_buffer[m_pos++];
+
+		if (byte == ADVANCE_FIELDDEF) {
+			field.token += read_compressed_int32();
+			byte = read_byte();
+		} else if ((byte >= ADVANCE_FIELDDEF_SHORT_MINUS_8) && (byte <= ADVANCE_FIELDDEF_SHORT_PLUS_8)) {
+			field.token += (int) byte - ADVANCE_FIELDDEF_SHORT_0;
+			byte = read_byte();
+		}
+
+		current_field_token = field.token;
+
+		if (byte == FIELD_OFFSET) {
+			field.explicit_offset.reset(new uint32_t(read_compressed_uint32()));
+		}
+
+		if ((byte >= FIELD_SIMPLE) && (byte < FIELD_MAX)) {
+			uint32_t encoding = field_encodings[byte - FIELD_SIMPLE];
+			field.storage = mdil_type_def_field::field_storage(encoding >> 12);
+			field.protection = mdil_type_def_field::field_protection((encoding >> 8) & 0xf);
+			field.element_type = CorElementType(encoding & 0xff);
+		} else if ((byte >= FIELD_INSTANCE) && (byte <= FIELD_RVA)) {
+			field.storage = mdil_type_def_field::field_storage(byte - FIELD_INSTANCE);
+			uint8_t b = m_buffer[m_pos++];
+			field.protection = mdil_type_def_field::field_protection(b >> 5);
+			field.element_type = CorElementType(b & 0x1F);
+		} else {
+			fine = false;
+		}
+
+		if (fine && (field.element_type == ELEMENT_TYPE_VALUETYPE)) {
+			field.boxing_type = (CorElementType) read_compressed_type_token();
+		}
+
+		if (fine) {
+			printf_s("\t%s%s%s field_%08X;", field_storage[field.storage], field_protection[field.protection], format_element_type(field.element_type), field.token);
+			if (field.element_type == ELEMENT_TYPE_VALUETYPE) printf_s(" // box = %08X", field.boxing_type);
+			printf_s("\n");
+		} else break;
+
 	}
 
 	if (fine) for (uint32_t i = 0; i < methodCount; i++) {
@@ -297,6 +349,9 @@ bool mdil_ctl_parser::dump_known_unknowns()
 		} else if (byte == 0x25) {
 			printf_s("25 %02X ; what's this ?\n", m_buffer[m_pos+1]);
 			m_pos += 2;
+		} else if (byte == 0x95) {
+			printf_s("95 %02X ; what's this ?\n", m_buffer[m_pos+1]);
+			m_pos += 2;
 		} else break;
 	}
 	return true;
@@ -306,13 +361,9 @@ bool mdil_ctl_parser::dump_type_def()
 {
 	bool fine = true;
 
-	uint8_t byte = read_byte();
+	dump_known_unknowns();
 
-	if ((byte == 0x6a) && (m_buffer[m_pos] == 0x6f)) {
-		printf_s("6A 6F %02X %02X; what's this ?\n", m_buffer[m_pos+1], m_buffer[m_pos+2]);
-		m_pos += 3;
-		byte = read_byte();
-	}
+	uint8_t byte = read_byte();
 
 	if (byte == ADVANCE_ENCLOSING_TYPEDEF) {
 		printf_s("Advance Diff = %04X\n", read_compressed_uint32());

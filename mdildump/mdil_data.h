@@ -130,6 +130,9 @@ public:
 	void resize(typename std::vector<T>::size_type size) { if (get()) get()->resize(size); else reset(new std::vector<T>(size)); }
 };
 
+//////////////////////////////////////////////////////////////////////////
+// Type Spec
+
 struct mdil_type_spec
 {
 	const CorElementType element_type;
@@ -180,6 +183,38 @@ struct mdil_type_specs
 	shared_vector<std::shared_ptr<mdil_type_spec>> type_specs;
 };
 
+//////////////////////////////////////////////////////////////////////////
+// Type Def
+
+struct mdil_type_def_field
+{
+	mdToken token;
+	std::unique_ptr<uint32_t> explicit_offset;
+	enum field_storage
+	{
+		fsInstance,
+		fsStatic,
+		fsThreadLocal,
+		fsContextLocal,
+		fsRVA
+	} storage;
+	enum field_protection
+	{
+		fpPrivateScope,
+		fpPrivate,
+		fpFam_AND_Assem,
+		fpAssembly,
+		fpFamily,
+		fpFam_OR_Assem,
+		fpPublic
+	} protection;
+	CorElementType element_type;
+	mdToken boxing_type;
+};
+
+//////////////////////////////////////////////////////////////////////////
+// Code
+
 struct mdil_instruction {
 	unsigned long offset;
 	unsigned long length;
@@ -218,6 +253,9 @@ struct mdil_code
 	shared_vector<unsigned char> raw;
 	std::vector<mdil_method> methods;
 };
+
+//////////////////////////////////////////////////////////////////////////
+// Assembly
 
 class mdil_data {
 public:
