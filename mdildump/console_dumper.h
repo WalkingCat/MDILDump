@@ -7,6 +7,7 @@ class console_dumper
 	const mdil_data& m_data;
 	void dump_bytes_int (const shared_vector<unsigned char>& data, size_t offset, size_t count);
 	std::unordered_map<unsigned long, std::string> ext_modules;
+	void dump_type_def(mdil_type_def* type_def);
 	void dump_type_spec(mdil_type_spec* type_spec);
 public:
 	console_dumper(const mdil_data& data) : m_data(data) {}
@@ -15,6 +16,7 @@ public:
 	void dump_bytes (const shared_vector<unsigned char>& data, const char* title = nullptr, const char* description = nullptr);
 	void dump_chars (const shared_vector<char>& data, const char* title = nullptr, const char* description = nullptr);
 	void dump_ulongs (const shared_vector<unsigned long>& data, const char* title = nullptr, const char* description = nullptr);
+	void dump_type_map (const char* title = nullptr, const char* description = nullptr);
 	void dump_method_map (const char* title = nullptr, const char* description = nullptr);
 	void dump_generic_instances (const char* title = nullptr, const char* description = nullptr);
 	void dump_ext_module_refs(const char* title = nullptr, const char* description = nullptr);

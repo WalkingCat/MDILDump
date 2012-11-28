@@ -18,19 +18,20 @@ class mdil_ctl_parser
 	mdToken read_compressed_type_token();
 	mdToken read_compressed_method_token();
 
-	bool dump_known_unknowns();
+	bool skip_type_def_unknowns();
 
-	mdTypeDef current_type_token;
+	mdTypeDef current_enclosing_type_token;
 	mdFieldDef current_field_token;
 	mdMethodDef current_method_token;
 
-	bool dump_type_def_members(uint32_t field_Count, uint32_t method_count, uint32_t interface_count);
-	bool dump_type_def();
-
+	std::shared_ptr<mdil_field_def> parse_field_def();
+	std::shared_ptr<mdil_method_def> parse_method_def();
+	mdil_type_def* parse_type_def(const uint32_t index);
 	mdil_type_spec* parse_type_spec();
+
+	void debug( const char* format, ... );
 public:
 	mdil_ctl_parser(mdil_data& data) : m_data(data), m_buffer(m_data.types ? m_data.types->data() : nullptr), m_length(m_data.types.size()), m_pos(0), m_error(false) {}
-	void dump_type_map(const char* title = nullptr, const char* description = nullptr);
 	void parse();
 };
 

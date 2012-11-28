@@ -186,9 +186,9 @@ struct mdil_type_specs
 //////////////////////////////////////////////////////////////////////////
 // Type Def
 
-struct mdil_type_def_field
+struct mdil_field_def
 {
-	mdToken token;
+	mdFieldDef token;
 	std::unique_ptr<uint32_t> explicit_offset;
 	enum field_storage
 	{
@@ -209,7 +209,62 @@ struct mdil_type_def_field
 		fpPublic
 	} protection;
 	CorElementType element_type;
-	mdToken boxing_type;
+	mdToken boxing_type_token;
+};
+
+struct mdil_method_def
+{
+	enum method_kind
+	{
+		mkNormal,
+		mkPInvoke,
+		mkNativeCallable,
+		mkRuntimeImport,
+		mkRuntimeExport,
+		mkImplementInterface,
+	} kind;
+	mdMethodDef token;
+	CorMethodAttr attributes;
+	CorMethodImpl impl_attributes;
+	mdToken overridden_method_token;
+	enum method_impl_hints
+	{
+		mihIL,
+		mihFCall,
+		mihNDirect,
+		mihEEImpl,
+		mihArray,
+		mihInstantiated,
+		mihComInterop,
+		mihDynamic,
+		mihCtor = 0x10,
+		mihDefault_Ctor = 0x20,
+		mihCCtor = 0x40,
+		mihRetObj = 0x100,
+		mihRetByRef = 0x200,
+		mihBy_Ordinal = 0x1000,
+	} impl_hints;
+	uint32_t module_name;
+	uint32_t entry_point_name;
+	uint32_t calling_convention;
+};
+
+struct mdil_type_def
+{
+	mdTypeDef token;
+	mdToken enclosing_type_token;
+	CorTypeAttr attributes;
+	mdToken base_type_token;
+	std::vector<std::shared_ptr<mdil_field_def>> fields;
+	std::vector<std::shared_ptr<mdil_method_def>> methods;
+	std::vector<std::shared_ptr<mdToken>> impl_interfaces;
+	std::vector<std::shared_ptr<mdil_method_def>> impl_intface_methods;
+};
+
+struct mdil_type_defs
+{
+	shared_vector<unsigned long> raw;
+	shared_vector<std::shared_ptr<mdil_type_def>> type_defs;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -263,7 +318,7 @@ public:
 	std::shared_ptr<mdil_header_2>	header_2;
 	shared_vector<unsigned char>	platform_data;
 	shared_vector<unsigned long>	well_known_types;
-	shared_vector<unsigned long>	type_map;
+	mdil_type_defs					type_map;
 	shared_vector<unsigned long>	method_map;
 	shared_vector<unsigned char>	generic_instances;
 	shared_vector<ExtModRef>		ext_module_refs;

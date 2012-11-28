@@ -165,7 +165,7 @@ std::string mdil_parser::parse(const char* filename, mdil_data& data) {
 				if(!file.read(data.well_known_types, 30)) return g_file_reading_error; // magic number ?
 			}
 			
-			if (!file.read(data.type_map, data.header->typeMapCount)) return g_file_reading_error;
+			if (!file.read(data.type_map.raw, data.header->typeMapCount)) return g_file_reading_error;
 			if (!file.read(data.method_map, data.header->methodMapCount)) return g_file_reading_error;
 			if (!file.read(data.generic_instances, data.header->genericInstSize)) return g_file_reading_error;
 			if (!file.read(data.ext_module_refs, data.header->extModRefsCount)) return g_file_reading_error;

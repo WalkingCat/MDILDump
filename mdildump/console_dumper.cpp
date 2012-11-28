@@ -187,6 +187,122 @@ void console_dumper::dump_ulongs(const shared_vector<unsigned long>& data, const
 	printf_s("\n");
 }
 
+const char* format_element_type(CorElementType type) {
+	switch (type)
+	{
+	case ELEMENT_TYPE_VOID: return "void";
+	case ELEMENT_TYPE_BOOLEAN: return "bool";
+	case ELEMENT_TYPE_CHAR: return "char";
+	case ELEMENT_TYPE_I1: return "sbyte";
+	case ELEMENT_TYPE_U1: return "byte";
+	case ELEMENT_TYPE_I2: return "short";
+	case ELEMENT_TYPE_U2: return "ushort";
+	case ELEMENT_TYPE_I4: return "int";
+	case ELEMENT_TYPE_U4: return "uint";
+	case ELEMENT_TYPE_I8: return "long";
+	case ELEMENT_TYPE_U8: return "ulong";
+	case ELEMENT_TYPE_R4: return "float";
+	case ELEMENT_TYPE_R8: return "double";
+	case ELEMENT_TYPE_STRING: return "string";
+	case ELEMENT_TYPE_PTR: return "*";
+	case ELEMENT_TYPE_BYREF: return "@";
+	case ELEMENT_TYPE_VALUETYPE: return "VALUETYPE";
+	case ELEMENT_TYPE_CLASS: return "CLASS";
+	case ELEMENT_TYPE_VAR: return "VAR";
+	case ELEMENT_TYPE_ARRAY: return "ARRAY";
+	case ELEMENT_TYPE_GENERICINST: return "GENERICINST";
+	case ELEMENT_TYPE_TYPEDBYREF:  return "TYPEDBYREF";
+	case ELEMENT_TYPE_I: return "IntPtr";
+	case ELEMENT_TYPE_U: return "UIntPtr";
+	case ELEMENT_TYPE_FNPTR: return "FNPTR";
+	case ELEMENT_TYPE_OBJECT: return "object";
+	case ELEMENT_TYPE_SZARRAY: return "SZARRAY";
+	case ELEMENT_TYPE_MVAR:	return "MVAR";
+	default: return "####";
+	}
+}
+
+void console_dumper::dump_type_def( mdil_type_def* type_def )
+{
+	static const char* field_storage[] = { "", "static ", "/*ThreadLocal*/ ", "/*ContextLocal*/ ", "/*RVA*/ static " };
+	static const char* field_protection[] = { "/*private scope*/ ", "private ", "/*Fam_and_Assem*/ ", "internal ", "protected ", "protected internal ", "public " };
+
+	if (type_def != nullptr) {
+		printf_s("//enclosing type %08X\n", type_def->enclosing_type_token);
+		printf_s("type_%08X : type_%08X", type_def->token, type_def->base_type_token);
+
+		for(auto it = begin(type_def->impl_interfaces); it != end(type_def->impl_interfaces); ++it) {
+			printf_s(", interface_%08X", *it);
+		}
+		printf_s("\n");
+		printf_s("{\n");
+		for(auto it = begin(type_def->fields); it != end(type_def->fields); ++it) {
+			if (*it) {
+				printf_s("\t%s%s%s field_%08X;", field_storage[it->get()->storage], field_protection[it->get()->protection], format_element_type(it->get()->element_type), it->get()->token);
+				if (it->get()->element_type == ELEMENT_TYPE_VALUETYPE) printf_s(" // box = %08X", it->get()->boxing_type_token);
+				if (it->get()->explicit_offset) printf_s(" // offset = %04X", *it->get()->explicit_offset);
+				printf_s("\n");
+			} else {
+				printf_s("\t/*invalid*/ field;\n");
+				break;
+			}
+		}
+		for(auto it = begin(type_def->methods); it != end(type_def->methods); ++it) {
+			auto method = *it;
+			if (method) {
+				printf_s("\t");
+				switch (method->attributes & mdMemberAccessMask)
+				{
+				case mdPrivateScope: printf_s("/*PrivateScope*/ "); break;
+				case mdPrivate: printf_s("private "); break;
+				case mdFamANDAssem: printf_s("/*FamANDAssem*/ "); break;
+				case mdAssem: printf_s("internal "); break;
+				case mdFamily: printf_s("protected "); break;
+				case mdFamORAssem: printf_s("protected internal "); break;
+				case mdPublic: printf_s("public "); break;
+				}
+				if (method->attributes & mdStatic) printf_s("static ");
+				if (method->attributes & mdFinal) printf_s("sealed ");
+				if (method->attributes & mdVirtual) printf_s("virtual ");
+				if (method->attributes & mdNewSlot) printf_s("new ");
+				if (method->attributes & mdAbstract) printf_s("abstract ");
+				if (method->attributes & mdSpecialName) printf_s("/*SpecialName*/ ");
+				if (method->attributes & mdPinvokeImpl) printf_s("/*PInvoke*/ ");
+				if (method->attributes & mdUnmanagedExport) printf_s("/*UnmanagedExport*/ ");
+				if (method->attributes & mdRTSpecialName) printf_s("/*RTSpecialName*/ ");
+				printf_s("method_%08X", method->token);
+				if (method->impl_hints & mdil_method_def::mihCtor) printf_s(" //ctor");
+				if (method->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
+				if (method->impl_hints & mdil_method_def::mihCCtor) printf_s(" //cctor");
+				printf_s("\n");
+			}
+
+			for(auto it = begin(type_def->impl_intface_methods); it != end(type_def->impl_intface_methods); ++it) {
+				auto method = *it;
+				if (method) {
+					printf_s("\tmethod_%08X : interface_method_%08X", method->token, method->overridden_method_token);
+					printf_s("\n");
+				}
+			}
+		}
+		printf_s("}\n");
+	}
+}
+
+void console_dumper::dump_type_map( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
+{
+	if (m_data.type_map.type_defs && m_data.type_map.raw)  {
+		print_vector_size(m_data.type_map.type_defs, title, description);
+
+		for (unsigned long i = 1; i < m_data.type_map.type_defs.size(); i++) {
+			if (m_data.type_map.raw->at(i) == 0) continue;
+			printf_s("TYPD(%04X)=TYPE(%04X) :\n", i, m_data.type_map.raw->at(i));
+			dump_type_def(m_data.type_map.type_defs->at(i).get());
+		}
+		printf_s("\n");
+	} else dump_ulongs(m_data.type_map.raw, title, description);
+}
+
 void console_dumper::dump_method_map(const char* title, const char* description)
 {
 	print_vector_size(m_data.method_map, title, description);
@@ -323,7 +439,7 @@ void console_dumper::dump_types(const char* title, const char* description)
 
 	map<unsigned long, unsigned long> offsets;
 
-	for (auto i = begin(*m_data.type_map); i != end(*m_data.type_map); ++i) {
+	for (auto i = begin(*m_data.type_map.raw); i != end(*m_data.type_map.raw); ++i) {
 		offsets[*i] = 1;
 	}
 
