@@ -270,6 +270,18 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 			printf_s("class_%08X", type_def->token);
 		}
 
+		if (type_def->generic_parameters) {
+			printf_s("<");
+			for(uint32_t i = 0; i < type_def->generic_parameters.size(); ++i) {
+				auto param = type_def->generic_parameters->at(i);
+				if (param->attributes & gpCovariant) printf_s("out ");
+				else if (param->attributes & gpContravariant) printf_s("in ");
+				printf_s("param_%06X", param->param);
+				if (i < (type_def->generic_parameters.size()-1)) printf_s(",");
+			}
+			printf_s(">");
+		}
+
 		printf_s(" : type_%08X", type_def->base_type_token);
 
 		for(auto it = begin(type_def->impl_interfaces); it != end(type_def->impl_interfaces); ++it) {
@@ -309,7 +321,23 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				if (method->attributes & mdVirtual) printf_s("virtual ");
 				if (method->attributes & mdNewSlot) printf_s("new ");
 				if (method->attributes & mdAbstract) printf_s("abstract ");
-				printf_s("method_%08X;", method->token);
+				
+				printf_s("method_%08X", method->token);
+
+				if (method->generic_parameters) {
+					printf_s("<");
+					for(uint32_t i = 0; i < method->generic_parameters.size(); ++i) {
+						auto param = method->generic_parameters->at(i);
+						if (param->attributes & gpCovariant) printf_s("out ");
+						else if (param->attributes & gpContravariant) printf_s("in ");
+						printf_s("param_%06X", param->param);
+						if (i < (method->generic_parameters.size()-1)) printf_s(",");
+					}
+					printf_s(">");
+				}
+
+				printf_s(";");
+
 				if (method->impl_hints & mdil_method_def::mihCtor) printf_s(" //ctor");
 				if (method->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
 				if (method->impl_hints & mdil_method_def::mihCCtor) printf_s(" //cctor");

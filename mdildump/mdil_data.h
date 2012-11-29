@@ -212,6 +212,13 @@ struct mdil_field_def
 	mdToken boxing_type_token;
 };
 
+struct mdil_generic_parameter
+{
+	uint32_t param;
+	CorGenericParamAttr attributes; 
+	mdil_generic_parameter(const uint32_t _param, const CorGenericParamAttr _attributes) : param(_param), attributes(_attributes) {}
+};
+
 struct mdil_method_def
 {
 	enum method_kind
@@ -247,7 +254,8 @@ struct mdil_method_def
 	} impl_hints;
 	uint32_t module_name;
 	uint32_t entry_point_name;
-	uint32_t calling_convention;
+	CorUnmanagedCallingConvention calling_convention;
+	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
 };
 
 struct mdil_type_def
@@ -258,6 +266,7 @@ struct mdil_type_def
 	std::shared_ptr<uint32_t> layout_size;
 	CorTypeAttr attributes;
 	mdToken base_type_token;
+	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
 	std::vector<std::shared_ptr<const mdil_field_def>> fields;
 	std::vector<std::shared_ptr<const mdil_method_def>> methods;
 	std::vector<std::shared_ptr<const mdToken>> impl_interfaces;

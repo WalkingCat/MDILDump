@@ -168,12 +168,14 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 	}
 
 	if (generic_parameter_count) {
+		ret->generic_parameters.resize(*generic_parameter_count);
 		for (uint32_t i = 0; i < *generic_parameter_count; ++i) {
 			byte = read_byte();
 			if (byte == GENERIC_PARAMETER) {
-				uint32_t f1 = read_compressed_uint32();
-				uint32_t f2 = read_compressed_uint32();
-				log_type_def("GENERIC_PARAMETER %06X %08X", f1, f2);
+				uint32_t param = read_compressed_uint32(); // what ??
+				CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32(); // only variance ?
+				ret->generic_parameters->at(i) = make_shared<mdil_generic_parameter>(param, attributes);
+				log_type_def("GENERIC_PARAMETER %06X %08X", param, attributes);
 
 			} else { log_type_def("expecting GENERIC_PARAMTER got %02X", byte); fine = false; }
 		}
@@ -514,7 +516,7 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
-		method->calling_convention = read_compressed_uint32();
+		method->calling_convention = (CorUnmanagedCallingConvention) read_compressed_uint32();
 	} else if (byte == RUNTIME_IMPORT_METHOD) {
 		log_type_def("\t\tRUNTIME_IMPORT_METHOD");
 		method->kind = mdil_method_def::mkRuntimeImport;
@@ -522,7 +524,7 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
-		method->calling_convention = read_compressed_uint32();
+		method->calling_convention = (CorUnmanagedCallingConvention) read_compressed_uint32();
 	} else if (byte == RUNTIME_EXPORT_METHOD) {
 		log_type_def("\t\tRUNTIME_EXPORT_METHOD");
 		method->kind = mdil_method_def::mkRuntimeExport;
@@ -547,9 +549,11 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	if (fine) {
 		while (peek_byte() == GENERIC_PARAMETER) {
 			read_byte();
-			uint32_t f1 = read_compressed_uint32();
-			uint32_t f2 = read_compressed_uint32();
-			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", f1, f2);
+			uint32_t param = read_compressed_uint32();
+			CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32();
+			if (!method->generic_parameters) method->generic_parameters.resize(0);
+			method->generic_parameters->push_back(make_shared<mdil_generic_parameter>(param, attributes));
+			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", param, attributes);
 		}
 	}
 
