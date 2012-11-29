@@ -228,12 +228,55 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 	static const char* field_protection[] = { "/*private scope*/ ", "private ", "/*Fam_and_Assem*/ ", "internal ", "protected ", "protected internal ", "public " };
 
 	if (type_def != nullptr) {
-		printf_s("//enclosing type %08X\n", type_def->enclosing_type_token);
-		printf_s("type_%08X : type_%08X", type_def->token, type_def->base_type_token);
+		bool notes = false;
+		if (type_def->attributes & tdWindowsRuntime) {
+			printf_s("// WindowsRuntime");
+			notes = true;
+		}
+		if (type_def->enclosing_type_token != mdTypeDefNil) {
+			if (notes) printf_s(" ");
+			printf_s("// enclosing type %08X", type_def->enclosing_type_token);
+			notes = true;
+		}
+		if (notes) printf_s("\n");
+
+		if ((type_def->attributes & tdLayoutMask) || type_def->layout_pack || type_def->layout_size) {
+			printf_s("[StructLayout(");
+			switch (type_def->attributes & tdLayoutMask) {
+			case tdAutoLayout: printf_s("LayoutKind.Auto"); break;
+			case tdSequentialLayout: printf_s("LayoutKind.Sequential"); break;
+			case tdExplicitLayout: printf_s("LayoutKind.Explicit"); break;
+			default: break;
+			}
+			if (type_def->layout_pack) printf_s(",Pack=%d", *type_def->layout_pack);
+			if (type_def->layout_size) printf_s(",Size=%d", *type_def->layout_size);
+			printf_s("]\n");
+		}
+
+		switch (type_def->attributes & tdVisibilityMask) {
+		case tdPublic: printf_s("public "); break;
+		default: break;
+		}
+
+		if ((type_def->attributes & tdAbstract) && (type_def->attributes & tdSealed)) printf_s("static ");
+		else {
+			if (type_def->attributes & tdAbstract) printf_s("abstract ");
+			if (type_def->attributes & tdSealed) printf_s("sealed ");
+		}
+
+		if (type_def->attributes & tdClassSemanticsMask & tdInterface) {
+			printf_s("interface_%08X", type_def->token);
+		} else {
+			printf_s("class_%08X", type_def->token);
+		}
+
+		printf_s(" : type_%08X", type_def->base_type_token);
 
 		for(auto it = begin(type_def->impl_interfaces); it != end(type_def->impl_interfaces); ++it) {
 			printf_s(", interface_%08X", *it);
 		}
+		if (type_def->attributes & tdSpecialName) printf_s(" // SpecialName");
+		if (type_def->attributes & tdRTSpecialName) printf_s(" // RTSpecialName");
 		printf_s("\n");
 		printf_s("{\n");
 		for(auto it = begin(type_def->fields); it != end(type_def->fields); ++it) {
@@ -266,23 +309,24 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				if (method->attributes & mdVirtual) printf_s("virtual ");
 				if (method->attributes & mdNewSlot) printf_s("new ");
 				if (method->attributes & mdAbstract) printf_s("abstract ");
-				if (method->attributes & mdSpecialName) printf_s("/*SpecialName*/ ");
-				if (method->attributes & mdPinvokeImpl) printf_s("/*PInvoke*/ ");
-				if (method->attributes & mdUnmanagedExport) printf_s("/*UnmanagedExport*/ ");
-				if (method->attributes & mdRTSpecialName) printf_s("/*RTSpecialName*/ ");
-				printf_s("method_%08X", method->token);
+				printf_s("method_%08X;", method->token);
 				if (method->impl_hints & mdil_method_def::mihCtor) printf_s(" //ctor");
 				if (method->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
 				if (method->impl_hints & mdil_method_def::mihCCtor) printf_s(" //cctor");
+				if (method->attributes & mdRTSpecialName) printf_s(" //RTSpecialName");
+				else if (method->attributes & mdSpecialName) printf_s(" //SpecialName");
+				if (method->attributes & mdPinvokeImpl) printf_s(" //PInvoke [%s]%s", m_data.name_pool->data() + method->module_name, m_data.name_pool->data() + method->entry_point_name);
+				if (method->attributes & mdUnmanagedExport) printf_s(" //UnmanagedExport %s", m_data.name_pool->data() + method->entry_point_name);
+				if (method->kind == mdil_method_def::mkRuntimeImport) printf_s(" //RuntimeImport %s", m_data.name_pool->data() + method->entry_point_name);
 				printf_s("\n");
 			}
+		}
 
-			for(auto it = begin(type_def->impl_intface_methods); it != end(type_def->impl_intface_methods); ++it) {
-				auto method = *it;
-				if (method) {
-					printf_s("\tmethod_%08X : interface_method_%08X", method->token, method->overridden_method_token);
-					printf_s("\n");
-				}
+		for(auto it = begin(type_def->impl_interface_methods); it != end(type_def->impl_interface_methods); ++it) {
+			auto method = *it;
+			if (method) {
+				printf_s("\tmethod_%08X : interface_method_%08X", method->token, method->overridden_method_token);
+				printf_s("\n");
 			}
 		}
 		printf_s("}\n");
@@ -296,8 +340,12 @@ void console_dumper::dump_type_map( const char* title /*= nullptr*/, const char*
 
 		for (unsigned long i = 1; i < m_data.type_map.type_defs.size(); i++) {
 			if (m_data.type_map.raw->at(i) == 0) continue;
-			printf_s("TYPD(%04X)=TYPE(%04X) :\n", i, m_data.type_map.raw->at(i));
-			dump_type_def(m_data.type_map.type_defs->at(i).get());
+			printf_s("TYPD(%04X)=TYPE(%04X) :", i, m_data.type_map.raw->at(i));
+			if (m_data.type_map.type_defs->at(i)) {
+				printf_s("\n");
+				dump_type_def(m_data.type_map.type_defs->at(i).get());
+			} else printf_s(" (invalid)\n", i, m_data.type_map.raw->at(i));
+
 		}
 		printf_s("\n");
 	} else dump_ulongs(m_data.type_map.raw, title, description);

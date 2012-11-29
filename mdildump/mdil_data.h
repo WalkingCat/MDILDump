@@ -221,6 +221,7 @@ struct mdil_method_def
 		mkNativeCallable,
 		mkRuntimeImport,
 		mkRuntimeExport,
+		mkImplement,
 		mkImplementInterface,
 	} kind;
 	mdMethodDef token;
@@ -252,19 +253,22 @@ struct mdil_method_def
 struct mdil_type_def
 {
 	mdTypeDef token;
-	mdToken enclosing_type_token;
+	mdTypeDef enclosing_type_token;
+	std::shared_ptr<uint32_t> layout_pack;
+	std::shared_ptr<uint32_t> layout_size;
 	CorTypeAttr attributes;
 	mdToken base_type_token;
-	std::vector<std::shared_ptr<mdil_field_def>> fields;
-	std::vector<std::shared_ptr<mdil_method_def>> methods;
-	std::vector<std::shared_ptr<mdToken>> impl_interfaces;
-	std::vector<std::shared_ptr<mdil_method_def>> impl_intface_methods;
+	std::vector<std::shared_ptr<const mdil_field_def>> fields;
+	std::vector<std::shared_ptr<const mdil_method_def>> methods;
+	std::vector<std::shared_ptr<const mdToken>> impl_interfaces;
+	std::vector<std::shared_ptr<const mdil_method_def>> impl_interface_methods;
+	mdil_type_def(mdTypeDef _token) : token(_token), attributes(tdNotPublic), base_type_token(mdTokenNil) {}
 };
 
 struct mdil_type_defs
 {
 	shared_vector<unsigned long> raw;
-	shared_vector<std::shared_ptr<mdil_type_def>> type_defs;
+	shared_vector<const std::shared_ptr<mdil_type_def>> type_defs;
 };
 
 //////////////////////////////////////////////////////////////////////////
