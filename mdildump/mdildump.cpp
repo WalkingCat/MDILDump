@@ -85,7 +85,6 @@ void print_usage() {
 		} else printf_s("\t");
 
 		if (len < 6) printf_s("\t");
-		//if (len < 8) printf_s("\t");
 		if (len < 14) printf_s("\t");
 		printf_s("\t: %s\n", o->description);
 	}
@@ -125,18 +124,18 @@ int _tmain(int argc, _TCHAR* argv[])
 	printf_s("Dumping assembly file: %s\n\n", assembly);
 
 	if ((options & dumpCodeDasm) && (!(options & (dumpCode1 | dumpCode2)))) options |= dumpCode1 | dumpCode2;
+
 	if (options == dumpNone) options = dumpHeader | dumpHeader2 | dumpTypeMap | dumpMethodMap | dumpGenericInstances |
-		dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs | dumpCode1 | dumpCode2 | dumpCodeDasm;
+		dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs | dumpTypeSpecs | dumpCode1 | dumpCode2 | dumpCodeDasm;
 
 	mdil_data data;
 	std::string error = mdil_parser().parse(assembly, data);
 
 	if ((!data.header) && (!error.empty())) { printf_s("Parsing Error: %s\n", error.c_str()); return 0; }
 
-	std::shared_ptr<console_dumper> dumper = std::make_shared<console_dumper>(data);
-	auto ctl_dumper = make_shared<mdil_ctl_parser>(data);
+	mdil_ctl_parser(data).parse();
 
-	ctl_dumper->parse();
+	auto dumper = std::make_shared<console_dumper>(data);
 
 	if (options & dumpHeader)			dumper->dump_mdil_header("MDIL Header");
 	if (options & dumpHeader2)			dumper->dump_mdil_header_2("MDIL Header 2");
@@ -149,7 +148,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (options & dumpExtTypeRefs)		dumper->dump_ext_type_refs("External Type References", "Index in External Module References section, and an index");
 	if (options & dumpExtMemberRefs)	dumper->dump_ext_member_refs("External Member References", "Index in Type Spec or External Type References section, and an index");
 	if (options & dumpTypeSpecs)		dumper->dump_type_specs("Type Specs", "Offsets in Types section");
-	if (options & dumpMethodSpecs)		dumper->dump_ulongs(data.method_specs, "Method Specs", "Offsets in Types Layout section");
+	if (options & dumpMethodSpecs)		dumper->dump_method_specs("Method Specs", "Offsets in Types section");
 	if (options & dumpSection10)		dumper->dump_ulongs(data.section_10, "Section 10");
 	if (options & dumpNamePool)			dumper->dump_chars(data.name_pool, "Name Pool");
 	if (options & dumpTypes)			dumper->dump_types("Types", "Compact Type Layout");

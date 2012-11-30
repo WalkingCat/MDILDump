@@ -22,12 +22,14 @@ class mdil_ctl_parser
 	mdFieldDef current_field_token;
 	mdMethodDef current_method_token;
 
+	void log_type_def( const char* format, ... );
+
 	std::shared_ptr<mdil_field_def> parse_field_def(bool peek = false);
 	std::shared_ptr<mdil_method_def> parse_method_def();
 	std::shared_ptr<mdil_type_def> parse_type_def(const uint32_t index);
-	mdil_type_spec* parse_type_spec();
 
-	void log_type_def( const char* format, ... );
+	mdil_type_spec* parse_type_spec();
+	std::shared_ptr<mdil_method_spec> parse_method_spec();
 public:
 	mdil_ctl_parser(mdil_data& data) : m_data(data), m_buffer(m_data.types ? m_data.types->data() : nullptr), m_length(m_data.types.size()), m_pos(0), m_error(false) {}
 	void parse();

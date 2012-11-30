@@ -184,6 +184,21 @@ struct mdil_type_specs
 };
 
 //////////////////////////////////////////////////////////////////////////
+// Method Spec
+
+struct mdil_method_spec
+{
+	mdToken token;
+	shared_vector<std::shared_ptr<mdil_type_spec>> parameters;
+};
+
+struct mdil_method_specs
+{
+	shared_vector<unsigned long> raw;
+	shared_vector<std::shared_ptr<mdil_method_spec>> method_specs;
+};
+
+//////////////////////////////////////////////////////////////////////////
 // Type Def
 
 struct mdil_field_def
@@ -264,6 +279,8 @@ struct mdil_type_def
 	mdTypeDef enclosing_type_token;
 	std::shared_ptr<uint32_t> layout_pack;
 	std::shared_ptr<uint32_t> layout_size;
+	std::shared_ptr<uint32_t> extended_flags;
+	std::shared_ptr<uint32_t> winrt_redirected;
 	CorTypeAttr attributes;
 	mdToken base_type_token;
 	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
@@ -338,7 +355,7 @@ public:
 	shared_vector<ExtTypeRef>		ext_type_refs;
 	shared_vector<ExtMemberRef>		ext_member_refs;
 	mdil_type_specs					type_specs;
-	shared_vector<unsigned long>	method_specs;
+	mdil_method_specs				method_specs;
 	shared_vector<unsigned long>	section_10;
 	shared_vector<char>				name_pool;
 	shared_vector<unsigned char>	types;

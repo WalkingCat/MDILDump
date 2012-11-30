@@ -253,13 +253,15 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 
 		if (byte == EXTENDED_TYPE_FLAGS) {
 			read_byte();
-			log_type_def("EXTENDED_TYPE_FLAGS=%08X", read_compressed_uint32());
+			ret->extended_flags = make_shared<uint32_t>(read_compressed_uint32());
+			log_type_def("EXTENDED_TYPE_FLAGS=%08X", *ret->extended_flags);
 			byte = peek_byte();
 		}
 
 		if (byte == SPECIAL_TYPE) {
 			read_byte();
-			log_type_def("SPECIAL_TYPE=%08X", read_compressed_uint32());
+			ret->winrt_redirected = make_shared<uint32_t>(read_compressed_uint32());
+			log_type_def("SPECIAL_TYPE=%08X", *ret->winrt_redirected);
 			byte = peek_byte();
 		}
 
@@ -630,6 +632,19 @@ mdil_type_spec* mdil_ctl_parser::parse_type_spec()
 	}
 }
 
+std::shared_ptr<mdil_method_spec> mdil_ctl_parser::parse_method_spec()
+{
+	auto ret = make_shared<mdil_method_spec>();
+	ret->token = read_compressed_method_token();
+	uint32_t count = read_compressed_uint32();
+	ret->parameters.resize(count);
+	for(uint32_t i = 0; i < count; i++) {
+		auto type_spec = parse_type_spec();
+		ret->parameters->at(i).reset(type_spec);
+	}
+	return ret;
+}
+
 void mdil_ctl_parser::parse()
 {
 	current_field_token = mdFieldDefNil;
@@ -653,6 +668,16 @@ void mdil_ctl_parser::parse()
 		if (offset != 0) {
 			m_pos = offset;
 			m_data.type_specs.type_specs->at(i).reset(parse_type_spec());
+		}
+	}
+
+	m_data.method_specs.method_specs.resize(m_data.method_specs.raw.size());
+
+	for (unsigned long i = 1; i < m_data.method_specs.raw.size(); i++) {
+		auto offset = m_data.method_specs.raw->at(i);;
+		if (offset != 0) {
+			m_pos = offset;
+			m_data.method_specs.method_specs->at(i) = parse_method_spec();
 		}
 	}
 }

@@ -25,6 +25,7 @@ public:
 	std::string format_ext_type_ref(unsigned long id);
 	void dump_ext_member_refs(const char* title = nullptr, const char* description = nullptr);
 	void dump_type_specs(const char* title = nullptr, const char* description = nullptr);
+	void dump_method_specs(const char* title = nullptr, const char* description = nullptr);
 	void dump_types(const char* title = nullptr, const char* description = nullptr);
 	void dump_code(const mdil_code& code, const char* title = nullptr, const char* description = nullptr);
 	void dump_debug_info (const shared_vector<unsigned char>& data, bool hasSig, const char* title = nullptr, const char* description = nullptr);
