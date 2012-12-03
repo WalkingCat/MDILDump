@@ -96,7 +96,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	const char* assembly = nullptr;
 	const char* err_arg = nullptr;
 
-	printf_s("\nMDILDump v0.1 https://github.com/WalkingCat/mdildump\n\n");
+	printf_s("\nMDILDump v0.2 https://github.com/WalkingCat/mdildump\n\n");
 
 	for(int i = 1; i < argc; i++) {
 		const char* arg = argv[i];
