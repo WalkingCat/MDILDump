@@ -14,7 +14,7 @@ struct	mdil_header
 	DWORD	extMemberRefsCount;	// number of entries in external member sect.
 	DWORD	typeSpecCount;	// number of entries in typespec section
 	DWORD	methodSpecCount ;	// number of entries in methodspec section
-	DWORD	section10Size;	
+	DWORD	section_10_count;	
 	DWORD	namePoolSize;	// size of name pool in bytes
 	DWORD	typeSize;	// size of compact type layout section
 	DWORD	userStringPoolSize;	// size of user string pool
@@ -154,7 +154,7 @@ struct mdil_type_spec_with_number : mdil_type_spec
 struct mdil_type_spec_with_child : mdil_type_spec
 {
 	const std::shared_ptr<mdil_type_spec> child;
-	mdil_type_spec_with_child(const CorElementType _type, mdil_type_spec* _child) : mdil_type_spec(_type), child(_child) {}
+	mdil_type_spec_with_child(const CorElementType _type, const std::shared_ptr<mdil_type_spec>& _child) : mdil_type_spec(_type), child(_child) {}
 };
 
 struct mdil_type_spec_array : mdil_type_spec_with_child
@@ -162,18 +162,18 @@ struct mdil_type_spec_array : mdil_type_spec_with_child
 	const uint32_t rank;
 	const std::vector<uint32_t> bounds;
 	const std::vector<uint32_t> lbounds;
-	mdil_type_spec_array(mdil_type_spec* _child, const uint32_t _rank)
+	mdil_type_spec_array(const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank)
 		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank) {}
-	mdil_type_spec_array(mdil_type_spec* _child, const uint32_t _rank, const std::vector<uint32_t>& _bounds, const std::vector<uint32_t>& _lbounds)
+	mdil_type_spec_array(const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank, const std::vector<uint32_t>& _bounds, const std::vector<uint32_t>& _lbounds)
 		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank), bounds(_bounds), lbounds(_lbounds) {}
 };
 
 struct mdil_type_spec_generic : mdil_type_spec_with_child
 {
 	const std::vector<std::shared_ptr<mdil_type_spec>> type_arguments;
-	mdil_type_spec_generic(mdil_type_spec* _child)
+	mdil_type_spec_generic(const std::shared_ptr<mdil_type_spec>& _child)
 		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child) {}
-	mdil_type_spec_generic(mdil_type_spec* _child, const std::vector<std::shared_ptr<mdil_type_spec>>& _args)
+	mdil_type_spec_generic(const std::shared_ptr<mdil_type_spec>& _child, const std::vector<std::shared_ptr<mdil_type_spec>>& _args)
 		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child), type_arguments(_args) {}
 };
 

@@ -16,6 +16,7 @@
 #include <sstream>
 #include <iomanip>
 #include <map>
+#include <functional>
 
 #include <windows.h>
 #include <CorHdr.h>

@@ -12,15 +12,21 @@ class mdil_decoder {
 	unsigned short read_word_le();
 	unsigned short read_word_be();
 	unsigned long read_dword_le();
+	std::string format_const_data (unsigned long length);
 	std::string read_native_quote (unsigned long length);
+	std::string format_byte();
 	static std::string format_byte(unsigned char val);
+	std::string format_dword();
 	static std::string format_dword(unsigned long val);
 	std::string format_type_token();
+	std::string format_method_token();
+	std::string format_string_token();
 	std::string format_method_token(unsigned long val);
 	std::string format_immediate();
-	unsigned char read_addr_regs_byte(unsigned char& op_reg, unsigned char& base_reg, unsigned char& flags);
-	std::string format_address();
-	std::string format_address_call_indirect();
+	std::string format_address_modifier(uint8_t modifier, const char* str, bool& bracketed);
+	std::string format_address_base(uint8_t base_reg, uint8_t flags);
+	std::string format_address(std::function<std::string(uint8_t, uint8_t, uint8_t)> formatter = nullptr);
+	std::string format_address_no_reg();
 	std::string format_field_token();
 	std::string format_jump_distance(bool jump_long = false);
 public:

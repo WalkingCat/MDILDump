@@ -173,7 +173,7 @@ std::string mdil_parser::parse(const char* filename, mdil_data& data) {
 			if (!file.read(data.ext_member_refs, data.header->extMemberRefsCount)) return g_file_reading_error;
 			if (!file.read(data.type_specs.raw, data.header->typeSpecCount)) return g_file_reading_error;
 			if (!file.read(data.method_specs.raw, data.header->methodSpecCount)) return g_file_reading_error;
-			if (!file.read(data.section_10, data.header->section10Size)) return g_file_reading_error;
+			if (!file.read(data.section_10, data.header->section_10_count)) return g_file_reading_error;
 			if (!file.read(data.name_pool, data.header->namePoolSize)) return g_file_reading_error;
 			if (!file.read(data.types, data.header->typeSize)) return g_file_reading_error;
 			if (!file.read(data.user_string_pool, data.header->userStringPoolSize)) return g_file_reading_error;

@@ -48,7 +48,7 @@ void console_dumper::dump_mdil_header( const char* title, const char* descriptio
 	printf_s("\t.extMemberRefsCount = %d\n", header.extMemberRefsCount);
 	printf_s("\t.typeSpecCount = %d\n", header.typeSpecCount);
 	printf_s("\t.methodSpecCount = %d\n", header.methodSpecCount);
-	printf_s("\t.section10Size = %d\n", header.section10Size);
+	printf_s("\t.section10Count = %d\n", header.section_10_count);
 	printf_s("\t.namePoolSize = %d\n", header.namePoolSize);
 	printf_s("\t.typeSize = %d\n", header.typeSize);
 	printf_s("\t.userStringPoolSize = %d\n", header.userStringPoolSize);
@@ -670,7 +670,7 @@ void console_dumper::dump_code( const mdil_code& code, const char* title, const 
 	for (auto m = begin(code.methods); m != end(code.methods); ++m) {
 		printf_s("METHOD_%06X:\nSize = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
 			m->global_offset, m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
-		dump_bytes_int(code.raw, m->offset, m->size);
+		dump_bytes_int(code.raw, m->offset + m->routine_offset, m->routine_size);
 		if (!m->routine.empty()) dump_instructions(m->routine, code.raw->data() + m->offset + m->routine_offset, m->routine_size);
 		printf_s("\n");
 	}

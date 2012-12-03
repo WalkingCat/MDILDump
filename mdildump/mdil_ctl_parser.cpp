@@ -563,8 +563,10 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	return method;
 }
 
-mdil_type_spec* mdil_ctl_parser::parse_type_spec()
+shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec()
 {
+	shared_ptr<mdil_type_spec> ret;
+
 	uint8_t byte = read_byte();
 
 	switch (byte) {
@@ -586,17 +588,21 @@ mdil_type_spec* mdil_ctl_parser::parse_type_spec()
 	case ELEMENT_TYPE_U:
 	case ELEMENT_TYPE_FNPTR: // TODO
 	case ELEMENT_TYPE_OBJECT:
-		return new mdil_type_spec((CorElementType) byte);
+		ret = make_shared<mdil_type_spec>((CorElementType) byte);
+		break;
 	case ELEMENT_TYPE_PTR:
 	case ELEMENT_TYPE_BYREF:
 	case ELEMENT_TYPE_TYPEDBYREF:
-		return new mdil_type_spec_with_child((CorElementType) byte, parse_type_spec());
+		ret.reset(new mdil_type_spec_with_child((CorElementType) byte, parse_type_spec()));
+		break;
 	case ELEMENT_TYPE_VALUETYPE:
 	case ELEMENT_TYPE_CLASS:
-		return new mdil_type_spec_with_token((CorElementType) byte, read_compressed_type_token());
+		ret.reset(new mdil_type_spec_with_token((CorElementType) byte, read_compressed_type_token()));
+		break;
 	case ELEMENT_TYPE_VAR:
 	case ELEMENT_TYPE_MVAR:
-		return new mdil_type_spec_with_number((CorElementType) byte, read_compressed_uint32());
+		ret.reset(new mdil_type_spec_with_number((CorElementType) byte, read_compressed_uint32()));
+		break;
 	case ELEMENT_TYPE_ARRAY: {
 		auto type = parse_type_spec();
 		if (type) {
@@ -610,11 +616,13 @@ mdil_type_spec* mdil_ctl_parser::parse_type_spec()
 			vector<uint32_t> lbounds(lbcount);
 			for (uint32_t i = 0; i < lbcount; ++i) lbounds[i] = read_compressed_uint32();
 
-			return new mdil_type_spec_array(type, rank, bounds, lbounds);
-		} else return new mdil_type_spec_array(nullptr, 0); // invalid
+			ret.reset(new mdil_type_spec_array(type, rank, bounds, lbounds));
+		}
+		break;
 	}
 	case ELEMENT_TYPE_SZARRAY:
-		return new mdil_type_spec_array(parse_type_spec(), 1);
+		ret.reset(new mdil_type_spec_array(parse_type_spec(), 1));
+		break;
 	case ELEMENT_TYPE_GENERICINST: {
 		auto type = parse_type_spec();
 		if (type != nullptr) {
@@ -623,13 +631,16 @@ mdil_type_spec* mdil_ctl_parser::parse_type_spec()
 			for (uint32_t i=0; i < count; ++i) {
 				auto arg = parse_type_spec();
 				if (arg == nullptr) break;
-				args[i].reset(arg);
+				args[i] = arg;
 			}
-			return new mdil_type_spec_generic(type, args);
-		} else return new mdil_type_spec_generic(nullptr); // invalid
+			ret.reset(new mdil_type_spec_generic(type, args));
+		}
+		break;
 	}
-	default: return nullptr;
+	default: break;
 	}
+
+	return ret;
 }
 
 std::shared_ptr<mdil_method_spec> mdil_ctl_parser::parse_method_spec()
@@ -640,7 +651,7 @@ std::shared_ptr<mdil_method_spec> mdil_ctl_parser::parse_method_spec()
 	ret->parameters.resize(count);
 	for(uint32_t i = 0; i < count; i++) {
 		auto type_spec = parse_type_spec();
-		ret->parameters->at(i).reset(type_spec);
+		ret->parameters->at(i) = type_spec;
 	}
 	return ret;
 }
@@ -667,7 +678,7 @@ void mdil_ctl_parser::parse()
 		auto offset = m_data.type_specs.raw->at(i);;
 		if (offset != 0) {
 			m_pos = offset;
-			m_data.type_specs.type_specs->at(i).reset(parse_type_spec());
+			m_data.type_specs.type_specs->at(i) = parse_type_spec();
 		}
 	}
 
