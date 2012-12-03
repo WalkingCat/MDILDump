@@ -66,6 +66,10 @@ std::string mdil_decoder::format_immediate() {
 }
 
 string mdil_decoder::format_const_data (unsigned long length) {
+	if ((m_pos + length) > m_length) {
+		m_error = true;
+		return "(INVALID: TOO LONG)";
+	}
 	stringstream ss;
 	ss.flags(ss.hex | ss.uppercase);
 	for (unsigned long i = 0; i < length; ++i) {
@@ -75,6 +79,11 @@ string mdil_decoder::format_const_data (unsigned long length) {
 }
 
 string mdil_decoder::read_native_quote (unsigned long length) {
+	if ((m_pos + length) > m_length) {
+		m_error = true;
+		return "(INVALID: TOO LONG)";
+	}
+
 	stringstream ss;
 	ss.flags(ss.hex | ss.uppercase);
 	for (unsigned long i = 0; i < length; ++i) {
@@ -115,7 +124,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x0f: i->set("LIT_MACHINE_INST_15", read_native_quote(15)); break;
 		case 0x10: i->set("LIT_MACHINE_INST_B", read_native_quote(read_byte())); break;
 		case 0x11: i->set("LIT_MACHINE_INST_W", read_native_quote(read_word_le())); break;
-		//case 0x12: i->set("LIT_MACHINE_INST_L", read_native_quote(read_dword_le())); break;
+		case 0x12: i->set("LIT_MACHINE_INST_L", read_native_quote(read_dword_le())); break;
 		case 0x13: i->set("LOAD", format_address()); break;
 		case 0x14: i->set("STORE", format_address()); break;
 		case 0x15: i->set("STORE_REF", format_address()); break;
@@ -165,12 +174,12 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 				   }));break;
 		case 0x33: i->set("SHIFT_1", format_address_no_reg()); break;
 		case 0x34: i->set("SHIFT_IMM", format_address_no_reg()); i->operands += ", " + format_immediate(); break;
-		case 0x35: i->set("SHIFT_CL", format_address_no_reg()); i->operands += ", " + format_byte(); break;
-		case 0x36: i->set("OP_XMM", format_address_no_reg()); break;
+		case 0x35: i->set("SHIFT_CL", format_address_no_reg());/* i->operands += ", " + format_byte();*/ break;
+		case 0x36: i->set("OP_XMM", format_address_no_reg()); /*i->operands += ", " + format_byte();*/ break;
 		case 0x37: i->set("LD_ST_FPU", format_address_no_reg()); break;
 		case 0x38: i->set("OP_FPU", format_address_no_reg()); break;
 		case 0x39: i->set("ILOAD_FPU", format_address_no_reg()); break;
-		case 0x3a: i->set("ISTORE_FPU", format_address_no_reg()); break;
+		case 0x3a: i->set("ISTORE_FPU", format_address_no_reg()); i->operands += ", " + format_byte(); break; // ????
 		case 0x3b: i->set("SET_CC"); i->operands = format_address(); i->operands += ", " + format_byte(); break;
 		case 0x3c: i->set("XADD", format_address()); break;
 		case 0x3d: i->set("XCHG", format_address()); break;
@@ -185,6 +194,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 			break;
 		case 0x40: i->set("PUSH_STRUCT", format_address()); break;
 		case 0x41: i->set("UNKNOWN_41", format_address()); break;
+		case 0x42: i->set("UNKNOWN_42"); break;
 		case 0x43: i->set("UNKNOWN_43"); break;
 		case 0x44: i->set("UNKNOWN_44"); break;
 		case 0x45: i->set("GET_STATIC_BASE", format_type_token()); break;
@@ -228,6 +238,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x64: i->set("RETHROW"); break;
 		case 0x65: i->set("BEGIN_FINALLY", format_dword(read_dword_le())); break;
 		case 0x66: i->set("END_FINALLY"); break;
+		case 0x67: i->set("UNKNOWN_67"); break;
 		case 0x69: i->set("ISINST", format_type_token()); break;
 		case 0x6a: i->set("CASTCLASS", format_type_token()); break;
 		case 0x6b: i->set("BOX", format_type_token()); break;
@@ -350,6 +361,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xa8: i->set("LOCAL_STRUCT", format_type_token()); break;
 		case 0xaa: i->set("PARAM_BLOCK", format_immediate()); break;
 		case 0xab: i->set("PARAM_STRUCT", format_type_token()); break;
+		case 0xac: i->set("UNKNOWN_AC"); break;
 		case 0xaf: i->set("INIT_VAR", format_immediate()); break;
 		case 0xb0: i->set("INIT_STRUCT", format_address()); break;
 		case 0xb1: i->set("ARG_COUNT", format_immediate()); break;
@@ -383,6 +395,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xc3: i->set("SYNC_START"); break;
 		case 0xc4: i->set("SYNC_END"); break;
 		case 0xc5: i->set("GENERIC_LOOKUP", format_dword(read_dword_le())); break;
+		case 0xc6: i->set("UNKNOWN_C6", format_byte()); break;
 		case 0xc8: i->set("CONST_DATA", format_const_data(read_dword_le())); break;
 		case 0xc9:
 			i->set("LOAD_VARARGS_COOKIE");
@@ -440,6 +453,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xf4: i->set("UNKNOWN_F4"); break;
 		case 0xf7: i->set("UNKNOWN_F7"); break;
 		case 0xf8: i->set("UNKNOWN_F8"); break;
+		case 0xf9: i->set("UNKNOWN_F9", format_dword()); break;
 		case 0xfb: i->set("UNKNOWN_FB"); break;
 		case 0xfc: i->set("UNKNOWN_FC"); break;
 		case 0xfd: i->set("UNKNOWN_FD"); break;
@@ -604,10 +618,10 @@ std::string mdil_decoder::format_address_base(uint8_t base_reg, uint8_t flags)
 
 	if (true) { // x86
 		bool bracketed = false;
-		if (flags == 0x00) ret = format_address_modifier(0x01, mdil_reg(base_reg).c_str(), bracketed);
-		else if (flags == 0x01) ret = format_address_modifier(0x02, mdil_reg(base_reg).c_str(), bracketed);
-		else if (flags == 0x02) ret = "DWORD [" + mdil_reg(base_reg) + "]";
-		else if (flags == 0x03) ret = format_address_modifier(read_byte(), mdil_reg(base_reg).c_str(), bracketed);
+		if (flags == 0x0) ret = format_address_modifier(0x01, mdil_reg(base_reg).c_str(), bracketed);
+		else if (flags == 0x1) ret = format_address_modifier(0x02, mdil_reg(base_reg).c_str(), bracketed);
+		else if (flags == 0x2) ret = "DWORD [" + mdil_reg(base_reg) + "]";
+		else if (flags == 0x3) ret = format_address_modifier(read_byte(), mdil_reg(base_reg).c_str(), bracketed);
 	}
 
 	return ret;

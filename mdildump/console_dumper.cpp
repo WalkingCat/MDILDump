@@ -676,26 +676,33 @@ void console_dumper::dump_code( const mdil_code& code, const char* title, const 
 	}
 }
 
+int set_to_column(int col, int cur) {
+	if (cur > col) { putchar('\n'); cur = 0; }
+	for (int i = cur; i < col; ++i) putchar(' ');
+	return col;
+}
+
 void console_dumper::dump_instructions( const std::vector<std::shared_ptr<mdil_instruction>>& code, unsigned char* data, unsigned long count )
 {
 	for(auto i : code) {
-		printf_s("MDIL_%04X:", i->offset);
+		int len = 0;
+		len += printf_s("MDIL_%04X:", i->offset);
 		for (unsigned long pos = i->offset; pos < (i->offset + i->length); ++pos) {
-			printf_s(" %02X", data[pos]);
+			len += printf_s(" %02X", data[pos]);
 		}
 
-		if (i->length < 2) printf_s("\t"); // too short, add some spaces
-		if (i->length > 4) printf_s("\n\t\t"); // too long, wrap to next line
+		len = set_to_column(25, len);
 
 		if (!i->opcode.empty()) {
-			printf_s("\t%s", i->opcode.c_str());
-			if (i->opcode.length() < 4) printf_s("\t");
+			len += printf_s(" %s", i->opcode.c_str());
+
 			if (!i->operands.empty()) {
-				printf_s("\t%s", i->operands.c_str());
+				len = set_to_column(45, len);
+				len += printf_s(" %s", i->operands.c_str());
 			}
 			if (!i->annotation.empty()) {
-				if (i->operands.empty()) printf_s("\t\t");
-				printf_s("\t; %s", i->annotation.c_str());
+				len = set_to_column(65, len);
+				len += printf_s(" ; %s", i->annotation.c_str());
 			}
 			printf_s("\n");
 		}
