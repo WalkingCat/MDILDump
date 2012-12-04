@@ -133,6 +133,13 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if ((!data.header) && (!error.empty())) { printf_s("Parsing Error: %s\n", error.c_str()); return 0; }
 
+	mdil_architecture arch = archX86;
+	uint32_t arch_flags = data.header->flags & mdil_header::TargetArch_Mask;
+
+	if (arch_flags == mdil_header::TargetArch_X86) arch = archX86;
+	else if (arch_flags == mdil_header::TargetArch_AMD64) arch = archX64;
+	else if (arch_flags == (mdil_header::TargetArch_AMD64 | mdil_header::TargetArch_IA64)) arch = archARM;
+
 	mdil_ctl_parser(data).parse();
 
 	auto dumper = std::make_shared<console_dumper>(data);
@@ -156,14 +163,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (options & dumpCode1) {
 		if (options & dumpCodeDasm)
 			for (auto m = begin(data.code_1.methods); m != end(data.code_1.methods); ++m) {
-				m->routine.swap(mdil_decoder(data.code_1.raw->data() + m->offset + m->routine_offset, m->routine_size).decode());
+				m->routine.swap(mdil_decoder(data.code_1.raw->data() + m->offset + m->routine_offset, m->routine_size, arch).decode());
 			}
 		dumper->dump_code(data.code_1, "Code 1");
 	}
 	if (options & dumpCode2) {
 		if (options & dumpCodeDasm)
 			for (auto m = begin(data.code_2.methods); m != end(data.code_2.methods); ++m) {
-				m->routine.swap(mdil_decoder(data.code_2.raw->data() + m->offset + m->routine_offset, m->routine_size).decode());
+				m->routine.swap(mdil_decoder(data.code_2.raw->data() + m->offset + m->routine_offset, m->routine_size, arch).decode());
 			}
 		dumper->dump_code(data.code_2, "Code 2");
 	}

@@ -300,6 +300,8 @@ struct mdil_type_defs
 //////////////////////////////////////////////////////////////////////////
 // Code
 
+enum mdil_architecture { archX86 = 1, archX64 = 2, archARM = 3 };
+
 struct mdil_instruction {
 	unsigned long offset;
 	unsigned long length;

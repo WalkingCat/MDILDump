@@ -4,19 +4,19 @@
 using namespace std;
 
 
-mdil_decoder::mdil_decoder(const unsigned char* buffer, const unsigned long length )
-	: m_buffer(buffer), m_length(length), m_pos(0), m_error(false) {}
+mdil_decoder::mdil_decoder(const unsigned char* buffer, const unsigned long length, const mdil_architecture _architecture )
+	: m_buffer(buffer), m_length(length), m_pos(0), m_error(false), architecture(_architecture) {}
 
-string mdil_reg (unsigned char reg) {
+string mdil_decoder::format_reg_byte (uint8_t reg) {
 	switch (reg & 0xF) {
-	case 0x0 : return "EAX";
-	case 0x1 : return "ECX";
-	case 0x2 : return "EDX";
-	case 0x3 : return "EBX";
-	case 0x4 : return "???";
-	case 0x5 : return "EBP";
-	case 0x6 : return "ESI";
-	case 0x7 : return "EDI";
+	case 0x0 : return is_arm() ? "R0" : "EAX";
+	case 0x1 : return is_arm() ? "R1" : "ECX";
+	case 0x2 : return is_arm() ? "R2" : "EDX";
+	case 0x3 : return is_arm() ? "R3" : "EBX";
+	case 0x4 : return is_arm() ? "R4" : "ESP?";
+	case 0x5 : return is_arm() ? "R5" : "EBP";
+	case 0x6 : return is_arm() ? "R6" : "ESI";
+	case 0x7 : return is_arm() ? "R7" : "EDI";
 	case 0x8 : return "R8";
 	case 0x9 : return "R9";
 	case 0xA : return "R10";
@@ -26,6 +26,29 @@ string mdil_reg (unsigned char reg) {
 	case 0xE : return "R14";
 	case 0xF : return "R15";
 	default  : return "!!!";
+	}
+}
+
+string mdil_decoder::format_reg_byte () {
+	return format_reg_byte(read_byte());
+}
+
+uint32_t mdil_decoder::read_immediate_uint32()
+{
+	unsigned char first_byte = m_buffer[m_pos++];
+	switch (first_byte)
+	{
+	case 0xbb: { 
+		short value = (short) (m_buffer[m_pos] + (m_buffer[m_pos+1] << 8));
+		m_pos += 2;
+		return value;
+	}
+	case 0xdd: return read_dword_le();
+	case 0xbd:
+	case 0xdb:
+		m_error = true;
+		return 0;
+	default: return first_byte;
 	}
 }
 
@@ -46,13 +69,13 @@ std::string mdil_decoder::format_immediate() {
 	case 0xdd: ret << format_dword(read_dword_le()); break;
 	case 0xbd: 
 		ret << "ArrayElemSize[" << format_type_token() << "]";
-		ret << "*" << format_immediate();
-		ret << "+" << format_immediate();
+		ret << "*" << format_immediate(); // see ArgSize ???
+		ret << "+" << format_immediate(); // see ArgSize ???
 		break;
 	case 0xdb:
 		ret << "ArgumentSize[" << format_type_token() << "]";
-		ret << "*" << format_immediate();
-		ret << "+" << format_immediate();
+		ret << "*" << format_byte(); // different from the patent doc !!!??? // format_immediate();
+		ret << "+" << format_immediate(); // so how about this one ???
 		break;
 	default: { // SignedByte
 		char value = (char) first_byte;
@@ -95,8 +118,6 @@ string mdil_decoder::read_native_quote (unsigned long length) {
 std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 {
 	std::vector<shared_ptr<mdil_instruction>> routine;
-	stringstream ss;
-	ss.flags(ss.uppercase | ss.hex);
 
 	m_pos = 0;
 	m_error = false;
@@ -154,7 +175,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x2d: i->set("IMUL_IMM", format_address()); break;
 		case 0x2e:
 			i->set("ELEM_SCALE");
-			i->operands = mdil_reg(read_byte());
+			i->operands = format_reg_byte();
 			i->operands += ", " + format_address();
 			i->operands += ", " + format_type_token();
 			break;
@@ -249,7 +270,10 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x70: i->set("REF_BIRTH_ECX"); break;
 		case 0x71: i->set("REF_BIRTH_EDX"); break;
 		case 0x72: i->set("REF_BIRTH_EBX"); break;
-		case 0x73: i->set("REF_BIRTH_REG", mdil_reg((read_byte() >> 3) & 0x1f)); break;
+		case 0x73:
+			i->set("REF_BIRTH_REG", format_reg_byte((read_byte() >> 3) & 0x1f));
+			//i->operands += ", " + format_byte(); // ????
+			break;
 		case 0x74: i->set("REF_BIRTH_EBP"); break;
 		case 0x75: i->set("REF_BIRTH_ESI"); break;
 		case 0x76: i->set("REF_BIRTH_EDI"); break;
@@ -257,7 +281,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x78: i->set("REF_DEATH_ECX"); break;
 		case 0x79: i->set("REF_DEATH_EDX"); break;
 		case 0x7a: i->set("REF_DEATH_EBX"); break;
-		case 0x7b: i->set("REF_DEATH_REG", mdil_reg((read_byte() >> 3) & 0x1f)); break;
+		case 0x7b: i->set("REF_DEATH_REG", format_reg_byte((read_byte() >> 3) & 0x1f)); break;
 		case 0x7c: i->set("REF_DEATH_EBP"); break;
 		case 0x7d: i->set("REF_DEATH_ESI"); break;
 		case 0x7e: i->set("REF_DEATH_EDI"); break;
@@ -290,73 +314,76 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x99: i->set("REF_DEATH_REGS_POP_N");
 				   {
 					   unsigned char reg = read_byte();
-					   if (reg & 1) ss << "EAX,";
-					   if (reg & (1 << 1)) ss << "EDX,";
-					   if (reg & (1 << 2)) ss << "ECX,";
-					   if (reg & (1 << 3)) ss << "EBX,";
-					   if (reg & (1 << 4)) ss << "ESI,";
-					   if (reg & (1 << 5)) ss << "EDI,";
-					   ss << (reg >> 6);
-					   i->operands = ss.str();
+					   string s;
+					   if (reg & 1) s += is_arm() ? "R0 " : "EAX ";
+					   if (reg & (1 << 1)) s += is_arm() ? "R2 " :  "EDX ";
+					   if (reg & (1 << 2)) s += is_arm() ? "R1 " :  "ECX ";
+					   if (reg & (1 << 3)) s += is_arm() ? "R3 " :  "EBX ";
+					   if (reg & (1 << 4)) s += is_arm() ? "R6 " :  "ESI ";
+					   if (reg & (1 << 5)) s += is_arm() ? "R7 " :  "EDI ";
+					   s += format_byte(reg >> 6);
+					   i->operands = s;
 				   }
 			break;
 		case 0x9a:
 			i->opcode = "SWITCH";
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte() + ", ";
 			i->operands += format_dword(read_dword_le());
 			break;
 		case 0x9b: {
 			i->opcode = "SWITCH_TABLE";
 			uint32_t count = read_dword_le();
 			i->operands += format_dword(count) += ":";
-			for (uint32_t c = 0; c < count; c++) {
-				i->operands += " " + format_dword();
-			}
+			if ((m_pos + (count * 4)) <= m_length) {
+				for (uint32_t c = 0; c < count; c++) {
+					i->operands += " " + format_dword();
+				}
+			} else { i->operands += "INVALID: TOO LONG"; m_error = true; }
 			break;
 		}
 		case 0x9c:
 			i->opcode = "LOAD_TOKEN";
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte() + ", ";
 			i->operands += format_dword();
 			break;
 		case 0x9d:
 			i->opcode = "PUSH_TOKEN";
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte() + ", ";
 			i->operands += format_dword();
 			break;
 		case 0x9e:
 			i->opcode = "LOAD_STRING";
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte() + ", ";
 			i->operands += format_string_token();
 			break;
 		case 0x9f:
 			i->opcode = "PUSH_STRING";
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte() + ", ";
 			i->operands += format_string_token();
 			break;
 		case 0xa0:
 			i->set("LOAD_FUNCTION");
-			i->operands += mdil_reg(read_byte()) + ", ";
+			i->operands += format_reg_byte() + ", ";
 			i->operands += format_method_token(read_dword_le());
 			break;
 		case 0xa1:
 			i->set("LOAD_VIRT_FUNCTION");
-			i->operands += mdil_reg(read_byte()) + ", ";
+			i->operands += format_reg_byte() + ", ";
 			i->operands += format_method_token(read_dword_le());
 			break;
 		case 0xa2: i->set("PUSH_FUNCTION", format_method_token()); break;
 		case 0xa3:
 			i->set("LOAD_RVA_FIELD_ADDR");
-			i->operands = mdil_reg(read_byte());
+			i->operands = format_reg_byte();
 			i->operands += ", " + format_field_token();
 			break;
 		case 0xa4:
 			i->set("LOAD_RVA_FIELD");
-			i->operands = mdil_reg(read_byte());
+			i->operands = format_reg_byte();
 			i->operands += ", " + format_field_token();
 			break;
-		case 0xa5: i->set("LOAD_GS_COOKIE", mdil_reg(read_byte())); break;
-		case 0xa6: i->set("LOAD_STATIC_SYNC_OBJ", mdil_reg(read_byte())); break;
+		case 0xa5: i->set("LOAD_GS_COOKIE", format_reg_byte()); break;
+		case 0xa6: i->set("LOAD_STATIC_SYNC_OBJ", format_reg_byte()); break;
 		case 0xa7: i->set("LOCAL_BLOCK", format_immediate()); break;
 		case 0xa8: i->set("LOCAL_STRUCT", format_type_token()); break;
 		case 0xaa: i->set("PARAM_BLOCK", format_immediate()); break;
@@ -369,16 +396,18 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xb3: i->set("DOUBLE_ALIGN_ESP"); break;
 		case 0xb4: {
 			i->opcode = "PUSH_REGS";
-			unsigned char regs = read_byte();
-			if (regs & 1) ss << "EBX ";
-			if (regs & (1 << 1)) ss << "ESI ";
-			if (regs & (1 << 2)) ss << "EDI ";
-			if (regs & (1 << 3)) ss << "EBP ";
-			if (regs & (1 << 4)) ss << "R12 ";
-			if (regs & (1 << 5)) ss << "R13 ";
-			if (regs & (1 << 6)) ss << "R14 ";
-			if (regs & (1 << 7)) ss << "R15 ";
-			i->operands = ss.str();
+			string s;
+			uint32_t regs = read_byte();
+			if (regs == 0xBB) regs = read_word_le(); // REALLY ?
+			if (regs & 1) s += is_arm() ? "R3 " : "EBX ";
+			if (regs & (1 << 1)) s += is_arm() ? "R6 " : "ESI ";
+			if (regs & (1 << 2)) s += is_arm() ? "R7 " : "EDI ";
+			if (regs & (1 << 3)) s += is_arm() ? "R5 " : "EBP ";
+			if (regs & (1 << 4)) s += "R12 ";
+			if (regs & (1 << 5)) s += "R13 ";
+			if (regs & (1 << 6)) s += "R14 ";
+			if (regs & (1 << 7)) s += "R15 ";
+			i->operands = s;
 			break;
 		}
 		case 0xb8: i->set("FRAME_SIZE", format_immediate()); break;
@@ -396,10 +425,11 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xc4: i->set("SYNC_END"); break;
 		case 0xc5: i->set("GENERIC_LOOKUP", format_dword(read_dword_le())); break;
 		case 0xc6: i->set("UNKNOWN_C6", format_byte()); break;
+		case 0xc7: i->set("UNKNOWN_C7", format_byte()); break;
 		case 0xc8: i->set("CONST_DATA", format_const_data(read_dword_le())); break;
 		case 0xc9:
 			i->set("LOAD_VARARGS_COOKIE");
-			i->operands = mdil_reg(read_byte()) + ", ";
+			i->operands = format_reg_byte(read_byte()) + ", ";
 			i->operands += format_dword(); break;
 		case 0xca: i->set("PUSH_VARARGS_COOKIE", format_dword(read_dword_le())); break;
 		case 0xcb: i->set("UNKNOWN_CB", format_byte()); break;
@@ -412,12 +442,18 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 			i->operands += ", " + format_dword();
 			break;
 		case 0xd0: i->set("PRESERVE_REGISTER_ACROSS_PROLOG"); break;
-		case 0xd5: i->set("UNKNOWN_D5", format_immediate()); break;
-		case 0xd6: i->set("UNKNOWN_D6", format_immediate()); break;
-		case 0xd7:
-			i->set("UNKNOWN_D7");
-			i->operands = format_byte();
-			i->operands += ", " + format_immediate(); break;
+		case 0xd5: i->set("UNKNOWN_D5", format_immediate()); i->operands += format_immediate(); break;
+		case 0xd6: { //!!
+			i->set("UNKNOWN_D6");
+			if (m_buffer[m_pos] == 0xdb) {
+				m_pos++;
+				i->operands = format_signature_token();
+			} else i->operands = format_immediate();
+			break;
+		}
+		case 0xd7: //!!
+			i->set("UNKNOWN_D7", is_arm() ? format_var_number() : format_byte()); // REALLY ?
+			break;
 		case 0xd8: i->set("UNKNOWN_D8", format_byte()); break;
 		case 0xd9: i->set("UNKNOWN_D9", format_byte()); break;
 		case 0xda: i->set("UNKNOWN_DA", format_byte()); break;
@@ -440,8 +476,8 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xeb: i->set("UNKNOWN_EB"); break; //!!
 		case 0xec: i->set("UNKNOWN_EC"); break;
 		case 0xed: i->set("UNKNOWN_ED"); break; //OK
-		case 0xee: i->set("UNKNOWN_EE", format_byte()); break; //!!
-		case 0xef: i->set("UNKNOWN_EF", format_immediate()); break;
+		case 0xee: i->set("UNKNOWN_EE", format_byte()); i->operands += format_immediate();  break; //!!
+		case 0xef: i->set("UNKNOWN_EF", format_immediate()); i->operands += format_immediate(); break;
 		case 0xf0: i->set("UNKNOWN_F0", format_byte()); break; //!!
 		case 0xf1: i->set("UNKNOWN_F1"); break; //!!
 		case 0xf2: //!!
@@ -452,8 +488,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xf3: i->set("UNKNOWN_F3", format_dword()); break;
 		case 0xf4: i->set("UNKNOWN_F4"); break;
 		case 0xf7: i->set("UNKNOWN_F7"); break;
-		case 0xf8: i->set("UNKNOWN_F8"); break;
+		case 0xf8: i->set("UNKNOWN_F8", format_immediate()); break;
 		case 0xf9: i->set("UNKNOWN_F9", format_dword()); break;
+		case 0xfa: i->set("UNKNOWN_FA"); break;
 		case 0xfb: i->set("UNKNOWN_FB"); break;
 		case 0xfc: i->set("UNKNOWN_FC"); break;
 		case 0xfd: i->set("UNKNOWN_FD"); break;
@@ -462,8 +499,6 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		default: i->opcode = "*ILLEGAL*"; m_error = true; break;
 		}
 
-		ss.str("");
-		ss.clear();
 		i->length = m_pos - i->offset;
 		routine.push_back(i);
 		if (m_error) break;
@@ -565,9 +600,9 @@ std::string mdil_decoder::format_address_modifier( uint8_t modifier, const char*
 		case 0xb: ret += "String"; scale = '?'; break;
 		case 0xc: ret += "MDimArray " + format_byte(read_byte()); break;
 		case 0xe: ret += "Scale " + format_byte(read_byte()); break;
-		default: ret += "???"; break;
+		default: ret += "###"; break;
 		}
-		ret += " + " + mdil_reg(index & 0x0f) + " * " + string(1, scale);
+		ret += " + " + format_reg_byte(index & 0x0f) + " * " + string(1, scale);
 		if (!bracketed) { ret = "[" + ret + "]"; bracketed = true; }
 	} else if (modifier == 0x03) {
 		ret +=  " + " + format_immediate();
@@ -618,10 +653,10 @@ std::string mdil_decoder::format_address_base(uint8_t base_reg, uint8_t flags)
 
 	if (true) { // x86
 		bool bracketed = false;
-		if (flags == 0x0) ret = format_address_modifier(0x01, mdil_reg(base_reg).c_str(), bracketed);
-		else if (flags == 0x1) ret = format_address_modifier(0x02, mdil_reg(base_reg).c_str(), bracketed);
-		else if (flags == 0x2) ret = "DWORD [" + mdil_reg(base_reg) + "]";
-		else if (flags == 0x3) ret = format_address_modifier(read_byte(), mdil_reg(base_reg).c_str(), bracketed);
+		if (flags == 0x0) ret = format_address_modifier(0x01, format_reg_byte(base_reg).c_str(), bracketed);
+		else if (flags == 0x1) ret = format_address_modifier(0x02, format_reg_byte(base_reg).c_str(), bracketed);
+		else if (flags == 0x2) ret = "DWORD [" + format_reg_byte(base_reg) + "]";
+		else if (flags == 0x3) ret = format_address_modifier(read_byte(), format_reg_byte(base_reg).c_str(), bracketed);
 	}
 
 	return ret;
@@ -631,16 +666,22 @@ std::string mdil_decoder::format_address( std::function<std::string(uint8_t, uin
 {
 	unsigned char addr_regs_byte = read_byte();
 
-	if (true) { // x86
-		uint8_t op_reg = (addr_regs_byte >> 3) & 0x7;
-		uint8_t base_reg = addr_regs_byte & 0x7;
-		uint8_t flags = (addr_regs_byte >> 6) & 0x3;
+	uint8_t op_reg, base_reg, flags;
 
-		if (formatter != nullptr)
-			return formatter(op_reg, base_reg, flags);
-		else {
-			return mdil_reg(op_reg) + ", " + format_address_base(base_reg, flags);
-		}
+	if (is_x86()) {
+		op_reg = (addr_regs_byte >> 3) & 0x7;
+		base_reg = addr_regs_byte & 0x7;
+		flags = (addr_regs_byte >> 6) & 0x3;
+	} else { // ARM ???
+		op_reg = (addr_regs_byte >> 4) & 0xF;
+		base_reg = addr_regs_byte & 0xF;
+		flags = 0x03;
+	}
+
+	if (formatter != nullptr)
+		return formatter(op_reg, base_reg, flags);
+	else {
+		return format_reg_byte(op_reg) + ", " + format_address_base(base_reg, flags);
 	}
 }
 
@@ -648,13 +689,20 @@ std::string mdil_decoder::format_address_no_reg()
 {
 	unsigned char addr_regs_byte = read_byte();
 
-	if (true) { // x86
-		uint8_t op_reg = (addr_regs_byte >> 3) & 0x7;
-		uint8_t base_reg = addr_regs_byte & 0x7;
-		uint8_t flags = (addr_regs_byte >> 6) & 0x3;
-		if (op_reg == 0) return format_address_base(base_reg, flags);
-		else return "(ERR:" + format_byte(op_reg) + ")" + format_address_base(base_reg, flags);
+	uint8_t op_reg, base_reg, flags;
+
+	if (is_x86()) {
+		op_reg = (addr_regs_byte >> 3) & 0x7;
+		base_reg = addr_regs_byte & 0x7;
+		flags = (addr_regs_byte >> 6) & 0x3;
+	} else { // ARM ???
+		op_reg = (addr_regs_byte >> 4) & 0xF;
+		base_reg = addr_regs_byte & 0xF;
+		flags = 0x03;
 	}
+
+	if (op_reg == 0) return format_address_base(base_reg, flags);
+	else return "(ERR:" + format_byte(op_reg) + ")" + format_address_base(base_reg, flags);
 }
 
 std::string mdil_decoder::format_string_token()
@@ -676,6 +724,18 @@ std::string mdil_decoder::format_field_token()
 		else return format_dword(0x0a002000 + ((first_byte - 0xf0) << 16) + read_word_le());
 	} else return format_dword();
 }
+
+
+std::string mdil_decoder::format_signature_token()
+{
+	uint8_t first_byte = read_byte();
+	if (first_byte != 0xff) {
+		if (first_byte < 0xc0) return format_dword(0x06000000 + (first_byte << 8) + read_byte());
+		else if (first_byte < 0xf0) return format_dword(0x0a000000 + ((first_byte - 0xc0) << 8) + read_byte());
+		else return format_dword(0x2b000000 + ((first_byte - 0xf0) << 8) + read_byte());
+	} else return format_dword();
+}
+
 
 std::string mdil_decoder::format_method_token( unsigned long val )
 {
@@ -702,4 +762,15 @@ std::string mdil_decoder::format_jump_distance(bool jump_long)
 	if (distance < 0) { s << "-"; distance = -distance; }
 	s << uppercase << hex << setfill('0') << setw(jump_long ? 8 : 2) << (int) distance;
 	return s.str();
+}
+
+std::string mdil_decoder::format_var_number()
+{
+	uint8_t first_byte = read_byte();
+	uint8_t second_byte = read_byte();
+	uint32_t ret;
+	if ((second_byte & 0xf) == 0x5) //TODO: THIS CANT BE RIGHT !
+		ret = read_immediate_uint32();
+	else ret = second_byte & 0x1f;
+	return format_dword((ret << 4) + (first_byte & 0xf));
 }
