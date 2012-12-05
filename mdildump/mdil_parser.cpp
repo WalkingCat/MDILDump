@@ -71,7 +71,7 @@ DWORD parse_method(const unsigned char* buffer, DWORD* routineOffset, DWORD* rou
 class easy_file {
 	FILE* file;
 public:
-	easy_file(const char* path, const char* mode) : file(nullptr) { fopen_s(&file, path, mode); }
+	easy_file(const wchar_t* path, const wchar_t* mode) : file(nullptr) { _wfopen_s(&file, path, mode); }
 	~easy_file() { if (file != nullptr) fclose(file); }
 
 	bool valid() { return file != nullptr; }
@@ -93,8 +93,8 @@ public:
 
 const char* g_file_reading_error = "file reading error";
 
-std::string mdil_parser::parse(const char* filename, mdil_data& data) {
-	easy_file file(filename, "rb");
+std::string mdil_parser::parse(const wchar_t* filename, mdil_data& data) {
+	easy_file file(filename, L"rb");
 	if (file.valid()) {
 		file.reset(0x3c);
 		file.reset(file.read4());

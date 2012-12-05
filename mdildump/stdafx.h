@@ -3,7 +3,6 @@
 #include "targetver.h"
 
 #include <stdio.h>
-#include <tchar.h>
 
 #pragma warning(push)
 #pragma warning(disable : 4345 )

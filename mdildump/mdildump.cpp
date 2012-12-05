@@ -38,77 +38,77 @@ enum dump_options {
 	dumpHelp			= 0x80000000,
 };
 
-const struct { const char* arg; const char* arg_alt; const char* description; const int options; } cmd_options[] = {
-	{ "?",		"help",				"show this help",					dumpHelp },
-	{ "all",	nullptr,			"dump all the data",				0xffffffff & (~dumpHelp) },
-	{ "h",		"header",			"dump MDIL header",					dumpHeader },
-	{ "h2",		"header2",			"dump MDIL header 2",				dumpHeader2 },
-	{ nullptr,	"headers",			"dump MDIL headers",				dumpHeader | dumpHeader2 },
-	{ "pd",		"platformdata",		"dump platform data",				dumpPlatformData },
-	{ "wkt",	"wellknowntypes",	"dump well known types",			dumpWellKnownTypes },
-	{ "tm",		"typemap",			"dump type map",					dumpTypeMap },
-	{ "mm",		"methodmap",		"dump method map",					dumpMethodMap },
-	{ "gi",		"genericinstances",	"dump generic instances",			dumpGenericInstances },
-	{ "emor",	"extmodulerefs",	"dump external module references",	dumpExtModuleRefs },
-	{ "etr",	"exttyperefs",		"dump external type references",	dumpExtTypeRefs },
-	{ "emr",	"extmemberrefs",	"dump external member references",	dumpExtMemberRefs },
-	{ nullptr,	"extrefs",			"dump external references",			dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs },
-	{ "ts",		"typespecs",		"dump type specs",					dumpTypeSpecs },
-	{ "ms",		"methodspecs",		"dump method specs",				dumpMethodSpecs },
-	{ "s10",	"section10",		"dump section 10",					dumpSection10 },
-	{ "np",		"namepool",			"dump name pool",					dumpNamePool },
-	{ "t",		"types",			"dump types",						dumpTypes },
-	{ "usp",	"userstringpool",	"dump user string pool",			dumpUserStringPool },
-	{ "c1",		"code1",			"dump code 1",						dumpCode1 },
-	{ "c2",		"code2",			"dump code 2",						dumpCode2 },
-	{ "c",		"code",				"dump code 1 & 2",					dumpCode1 | dumpCode2 },
-	{ "s16",	"section16",		"dump section 16",					dumpSection16 },
-	{ "s17",	"section17",		"dump section 17",					dumpSection17 },
-	{ "dm",		"debugmap",			"dump debug map",					dumpDebugMap },
-	{ "di1",	"debuginfo1",		"dump debug info 1",				dumpDebugInfo1 },
-	{ "di2",	"debuginfo2",		"dump debug info 2",				dumpDebugInfo2 },
-	{ nullptr,	"debug",			"dump debug map & info 1 & 2",		dumpDebugMap | dumpDebugInfo1 | dumpDebugInfo2 },
-	{ "s21",	"section21",		"dump section 21",					dumpSection21 },
-	{ "s22",	"section22",		"dump section 22",					dumpSection22 },
-	{ "cd",		"codedasm",			"dump disassembled code",			dumpCodeDasm },
+const struct { const wchar_t* arg; const wchar_t* arg_alt; const wchar_t* description; const int options; } cmd_options[] = {
+	{ L"?",		L"help",			L"show this help",					dumpHelp },
+	{ L"all",	nullptr,			L"dump all the data",				0xffffffff & (~dumpHelp) },
+	{ L"h",		L"header",			L"dump MDIL header",				dumpHeader },
+	{ L"h2",	L"header2",			L"dump MDIL header 2",				dumpHeader2 },
+	{ nullptr,	L"headers",			L"dump MDIL headers",				dumpHeader | dumpHeader2 },
+	{ L"pd",	L"platformdata",	L"dump platform data",				dumpPlatformData },
+	{ L"wkt",	L"wellknowntypes",	L"dump well known types",			dumpWellKnownTypes },
+	{ L"tm",	L"typemap",			L"dump type map",					dumpTypeMap },
+	{ L"mm",	L"methodmap",		L"dump method map",					dumpMethodMap },
+	{ L"gi",	L"genericinstances",L"dump generic instances",			dumpGenericInstances },
+	{ L"emor",	L"extmodulerefs",	L"dump external module references",	dumpExtModuleRefs },
+	{ L"etr",	L"exttyperefs",		L"dump external type references",	dumpExtTypeRefs },
+	{ L"emr",	L"extmemberrefs",	L"dump external member references",	dumpExtMemberRefs },
+	{ nullptr,	L"extrefs",			L"dump external references",		dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs },
+	{ L"ts",	L"typespecs",		L"dump type specs",					dumpTypeSpecs },
+	{ L"ms",	L"methodspecs",		L"dump method specs",				dumpMethodSpecs },
+	{ L"s10",	L"section10",		L"dump section 10",					dumpSection10 },
+	{ L"np",	L"namepool",		L"dump name pool",					dumpNamePool },
+	{ L"t",		L"types",			L"dump types",						dumpTypes },
+	{ L"usp",	L"userstringpool",	L"dump user string pool",			dumpUserStringPool },
+	{ L"c1",	L"code1",			L"dump code 1",						dumpCode1 },
+	{ L"c2",	L"code2",			L"dump code 2",						dumpCode2 },
+	{ L"c",		L"code",			L"dump code 1 & 2",					dumpCode1 | dumpCode2 },
+	{ L"s16",	L"section16",		L"dump section 16",					dumpSection16 },
+	{ L"s17",	L"section17",		L"dump section 17",					dumpSection17 },
+	{ L"dm",	L"debugmap",		L"dump debug map",					dumpDebugMap },
+	{ L"di1",	L"debuginfo1",		L"dump debug info 1",				dumpDebugInfo1 },
+	{ L"di2",	L"debuginfo2",		L"dump debug info 2",				dumpDebugInfo2 },
+	{ nullptr,	L"debug",			L"dump debug map & info 1 & 2",		dumpDebugMap | dumpDebugInfo1 | dumpDebugInfo2 },
+	{ L"s21",	L"section21",		L"dump section 21",					dumpSection21 },
+	{ L"s22",	L"section22",		L"dump section 22",					dumpSection22 },
+	{ L"cd",	L"codedasm",		L"dump disassembled code",			dumpCodeDasm },
 };
 
 void print_usage() {
 	printf_s("\tUsage: mdildump <assemblyfile> [options]\n\n");
 	for (auto o = std::begin(cmd_options); o != std::end(cmd_options); ++o) {
-		if (o->arg != nullptr) printf_s("\t-%s", o->arg); else printf_s("\t");
+		if (o->arg != nullptr) printf_s("\t-%S", o->arg); else printf_s("\t");
 
 		int len = 0;
 		if (o->arg_alt != nullptr){
-			len = strlen(o->arg_alt);
-			printf_s("\t--%s", o->arg_alt);
+			len = wcslen(o->arg_alt);
+			printf_s("\t--%S", o->arg_alt);
 		} else printf_s("\t");
 
 		if (len < 6) printf_s("\t");
 		if (len < 14) printf_s("\t");
-		printf_s("\t: %s\n", o->description);
+		printf_s("\t: %S\n", o->description);
 	}
 }
 
-int _tmain(int argc, _TCHAR* argv[])
+int wmain(int argc, wchar_t* argv[])
 {
 	int options = dumpNone;
-	const char* assembly = nullptr;
-	const char* err_arg = nullptr;
+	const wchar_t* assembly = nullptr;
+	const wchar_t* err_arg = nullptr;
 
 	printf_s("\nMDILDump v0.2 https://github.com/WalkingCat/mdildump\n\n");
 
 	for(int i = 1; i < argc; i++) {
-		const char* arg = argv[i];
+		const wchar_t* arg = argv[i];
 		if ((arg[0] == '-') || ((arg[0] == '/'))) {
 			bool valid = false;
 			if ((arg[0] == '-') && (arg[1] == '-')) {
 				for (auto o = std::begin(cmd_options); o != std::end(cmd_options); ++o) {
-					if ((o->arg_alt != nullptr) &&(_stricmp(arg + 2, o->arg_alt) == 0)) { valid = true; options |= o->options; }
+					if ((o->arg_alt != nullptr) &&(_wcsicmp(arg + 2, o->arg_alt) == 0)) { valid = true; options |= o->options; }
 				}
 			} else {
 				for (auto o = std::begin(cmd_options); o != std::end(cmd_options); ++o) {
-					if ((o->arg != nullptr) && (_stricmp(arg + 1, o->arg) == 0)) { valid = true; options |= o->options; }
+					if ((o->arg != nullptr) && (_wcsicmp(arg + 1, o->arg) == 0)) { valid = true; options |= o->options; }
 				}
 			}
 			if ((!valid) && (err_arg == nullptr)) err_arg = arg;
@@ -116,12 +116,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	if ((assembly == nullptr) || (err_arg != nullptr) || (options & dumpHelp)) {
-		if (err_arg != nullptr) printf_s("\tUnknown option: %s\n\n", err_arg);
+		if (err_arg != nullptr) printf_s("\tUnknown option: %S\n\n", err_arg);
 		print_usage();
 		return 0;
 	}
 
-	printf_s("Dumping assembly file: %s\n\n", assembly);
+	printf_s("Dumping assembly file: %S\n\n", assembly);
 
 	if ((options & dumpCodeDasm) && (!(options & (dumpCode1 | dumpCode2)))) options |= dumpCode1 | dumpCode2;
 

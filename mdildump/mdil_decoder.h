@@ -12,6 +12,7 @@ class mdil_decoder {
 	unsigned long m_pos;
 	bool m_error;
 	char read_signed_byte();
+	unsigned char peek_byte();
 	unsigned char read_byte();
 	unsigned short read_word_le();
 	unsigned short read_word_be();

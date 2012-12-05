@@ -156,9 +156,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x1a: i->set("ADD", format_address()); break;
 		case 0x1b: i->set("ADC", format_address()); break;
 		case 0x1c: i->set("AND", format_address()); break;
-		case 0x1d: i->set("CMP", format_address()); break;
+		case 0x1d: i->set("CMP", format_address()); break; // actually, just 2 bytes
 		case 0x1e: i->set("OR", format_address()); break;
-		case 0x1f: i->set("SUB", format_address()); break;
+		case 0x1f: i->set("SUB", format_address()); break; // actually, just 1 byte
 		case 0x20: i->set("SBB", format_address()); break;
 		case 0x21: i->set("XOR", format_address()); break;
 		case 0x22: i->set("ADD_TO", format_address()); break;
@@ -260,6 +260,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x65: i->set("BEGIN_FINALLY", format_dword(read_dword_le())); break;
 		case 0x66: i->set("END_FINALLY"); break;
 		case 0x67: i->set("UNKNOWN_67"); break;
+		case 0x68: i->set("UNKNOWN_68"); break;
 		case 0x69: i->set("ISINST", format_type_token()); break;
 		case 0x6a: i->set("CASTCLASS", format_type_token()); break;
 		case 0x6b: i->set("BOX", format_type_token()); break;
@@ -270,10 +271,14 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x70: i->set("REF_BIRTH_ECX"); break;
 		case 0x71: i->set("REF_BIRTH_EDX"); break;
 		case 0x72: i->set("REF_BIRTH_EBX"); break;
-		case 0x73:
-			i->set("REF_BIRTH_REG", format_reg_byte((read_byte() >> 3) & 0x1f));
-			//i->operands += ", " + format_byte(); // ????
+		case 0x73: {
+			i->set("REF_BIRTH_REG");
+			if (!is_arm()) { // WHAT THE HELL ??
+				uint8_t b = read_byte();
+				i->operands = format_reg_byte(( b >> 3) & 0x1f);
+			}
 			break;
+		}
 		case 0x74: i->set("REF_BIRTH_EBP"); break;
 		case 0x75: i->set("REF_BIRTH_ESI"); break;
 		case 0x76: i->set("REF_BIRTH_EDI"); break;
@@ -281,7 +286,14 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x78: i->set("REF_DEATH_ECX"); break;
 		case 0x79: i->set("REF_DEATH_EDX"); break;
 		case 0x7a: i->set("REF_DEATH_EBX"); break;
-		case 0x7b: i->set("REF_DEATH_REG", format_reg_byte((read_byte() >> 3) & 0x1f)); break;
+		case 0x7b: {
+			i->set("REF_DEATH_REG"); 
+			if (!is_arm()) { // WHAT THE HELL ??
+				uint8_t b = read_byte();
+				i->operands = format_reg_byte(( b >> 3) & 0x1f);
+			}
+			break;
+		}
 		case 0x7c: i->set("REF_DEATH_EBP"); break;
 		case 0x7d: i->set("REF_DEATH_ESI"); break;
 		case 0x7e: i->set("REF_DEATH_EDI"); break;
@@ -298,19 +310,23 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x89: i->set("REF_UNTR_EBP_VS", format_immediate()); break;
 		case 0x8a: i->set("REF_UNTR_ESP_VS", format_immediate()); break;
 		case 0x8b: i->set("REF_UNTR_LOCAL", format_immediate()); break;
-		case 0x8c: i->set("REF_UNTR_LCLFLD", format_immediate()); break;
+		case 0x8c: i->set("REF_UNTR_LCLFLD", format_var_number()); i->operands += format_immediate(); break;
 		case 0x8d: i->set("START_FULLY_INTERRUPTIBLE"); break;
 		case 0x8e: i->set("END_FULLY_INTERRUPTIBLE"); break;
 		case 0x8f: i->set("GC_PROBE"); break;
 		case 0x90: i->set("UNKNOWN_90"); break;
 		case 0x91: i->set("UNKNOWN_91"); break;
-		case 0x92: i->set("NONREF_PUSH"); break;
-		case 0x93: i->set("GCREF_PUSH"); break;
+		case 0x92: i->set("NONREF_PUSH", is_x86() ? "" : format_byte()); break; //!!! flags in low 3 bits
+		case 0x93: i->set("GCREF_PUSH", is_x86() ? "" : format_byte()); break; //!!! flags in low 3 bits
 		case 0x94: i->set("BYREF_PUSH"); break;
 		case 0x95: i->set("REF_PUSH"); break;
 		case 0x96: i->set("REF_POP_1"); break;
 		case 0x97: i->set("REF_POP_N", format_immediate()); break;
-		case 0x98: i->set("REF_INV_N", format_immediate()); break;
+		case 0x98:
+			i->set("REF_INV_N");
+			if (peek_byte() != 0xdb) i->operands == format_immediate();
+			else { read_byte(); format_signature_token(); }
+			break;
 		case 0x99: i->set("REF_DEATH_REGS_POP_N");
 				   {
 					   unsigned char reg = read_byte();
@@ -384,9 +400,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 			break;
 		case 0xa5: i->set("LOAD_GS_COOKIE", format_reg_byte()); break;
 		case 0xa6: i->set("LOAD_STATIC_SYNC_OBJ", format_reg_byte()); break;
-		case 0xa7: i->set("LOCAL_BLOCK", format_immediate()); break;
+		case 0xa7: i->set("LOCAL_BLOCK", ((peek_byte() != 0xff) && (peek_byte() != 0xfe)) ? format_immediate() : format_byte()); break;
 		case 0xa8: i->set("LOCAL_STRUCT", format_type_token()); break;
-		case 0xaa: i->set("PARAM_BLOCK", format_immediate()); break;
+		case 0xaa: i->set("PARAM_BLOCK", ((peek_byte() != 0xff) && (peek_byte() != 0xfe)) ? format_immediate() : format_byte()); break;
 		case 0xab: i->set("PARAM_STRUCT", format_type_token()); break;
 		case 0xac: i->set("UNKNOWN_AC"); break;
 		case 0xaf: i->set("INIT_VAR", format_immediate()); break;
@@ -397,8 +413,8 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xb4: {
 			i->opcode = "PUSH_REGS";
 			string s;
-			uint32_t regs = read_byte();
-			if (regs == 0xBB) regs = read_word_le(); // REALLY ?
+			uint16_t regs = read_byte();
+			if (regs == 0xBB) regs = read_word_le(); // arm. how about x86 ??
 			if (regs & 1) s += is_arm() ? "R3 " : "EBX ";
 			if (regs & (1 << 1)) s += is_arm() ? "R6 " : "ESI ";
 			if (regs & (1 << 2)) s += is_arm() ? "R7 " : "EDI ";
@@ -410,6 +426,9 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 			i->operands = s;
 			break;
 		}
+		case 0xb5: i->set("UNKNOWN_B5"); break;
+		case 0xb6: i->set("UNKNOWN_B6"); break;
+		case 0xb7: i->set("UNKNOWN_B7"); break;
 		case 0xb8: i->set("FRAME_SIZE", format_immediate()); break;
 		case 0xb9: i->set("END_PROLOG"); break;
 		case 0xba: i->set("EPILOG"); break;
@@ -417,22 +436,22 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xbc: i->set("END_EPILOG"); break;
 		case 0xbd: i->set("SECURITY_OBJECT", format_immediate()); break;
 		case 0xbe: i->set("GS_COOKIE_OFFSET", format_immediate()); break;
-		case 0xbf: i->set("LOCALLOC_USED"); break;
+		case 0xbf: i->set("LOCALLOC_USED", format_byte()); break;
 		case 0xc0: i->set("VAR_ARGS"); break;
 		case 0xc1: i->set("PROFILER_CALLBACKS"); break;
 		case 0xc2: i->set("EDIT_AND_CONTINUE"); break;
 		case 0xc3: i->set("SYNC_START"); break;
 		case 0xc4: i->set("SYNC_END"); break;
-		case 0xc5: i->set("GENERIC_LOOKUP", format_dword(read_dword_le())); break;
-		case 0xc6: i->set("UNKNOWN_C6", format_byte()); break;
-		case 0xc7: i->set("UNKNOWN_C7", format_byte()); break;
+		case 0xc5: i->set("GENERIC_LOOKUP", format_dword()); break;
+		case 0xc6: i->set("UNKNOWN_C6", format_byte()); i->operands += format_immediate(); break;
+		case 0xc7: i->set("UNKNOWN_C7"); break;
 		case 0xc8: i->set("CONST_DATA", format_const_data(read_dword_le())); break;
 		case 0xc9:
 			i->set("LOAD_VARARGS_COOKIE");
 			i->operands = format_reg_byte(read_byte()) + ", ";
 			i->operands += format_dword(); break;
 		case 0xca: i->set("PUSH_VARARGS_COOKIE", format_dword(read_dword_le())); break;
-		case 0xcb: i->set("UNKNOWN_CB", format_byte()); break;
+		case 0xcb: i->set("UNKNOWN_CB", format_field_token()); break;
 		case 0xcc: i->set("PINVOKE_RESERVE_FRAME", format_byte()); break;
 		case 0xcd: i->set("PINVOKE_LEAVE_RUNTIME", format_byte()); break;
 		case 0xce: i->set("PINVOKE_ENTIRE_RUNTIME", format_byte()); break;
@@ -442,17 +461,19 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 			i->operands += ", " + format_dword();
 			break;
 		case 0xd0: i->set("PRESERVE_REGISTER_ACROSS_PROLOG"); break;
+		case 0xd2: i->set("UNKNOWN_D2"); break;
 		case 0xd5: i->set("UNKNOWN_D5", format_immediate()); i->operands += format_immediate(); break;
+		case 0xd4: i->set("UNKNOWN_D4"); break;
 		case 0xd6: { //!!
 			i->set("UNKNOWN_D6");
-			if (m_buffer[m_pos] == 0xdb) {
-				m_pos++;
+			if (peek_byte() == 0xdb) {
+				read_byte();
 				i->operands = format_signature_token();
 			} else i->operands = format_immediate();
 			break;
 		}
 		case 0xd7: //!!
-			i->set("UNKNOWN_D7", is_arm() ? format_var_number() : format_byte()); // REALLY ?
+			i->set("UNKNOWN_D7", is_x86() ? format_byte() :format_var_number()); // REALLY ?
 			break;
 		case 0xd8: i->set("UNKNOWN_D8", format_byte()); break;
 		case 0xd9: i->set("UNKNOWN_D9", format_byte()); break;
@@ -474,19 +495,42 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xe9: i->set("UNKNOWN_E9"); break; //!!
 		case 0xea: i->set("UNKNOWN_EA"); break;
 		case 0xeb: i->set("UNKNOWN_EB"); break; //!!
-		case 0xec: i->set("UNKNOWN_EC"); break;
-		case 0xed: i->set("UNKNOWN_ED"); break; //OK
-		case 0xee: i->set("UNKNOWN_EE", format_byte()); i->operands += format_immediate();  break; //!!
-		case 0xef: i->set("UNKNOWN_EF", format_immediate()); i->operands += format_immediate(); break;
-		case 0xf0: i->set("UNKNOWN_F0", format_byte()); break; //!!
+		case 0xec: i->set("UNKNOWN_EC"); break; //!!
+		case 0xed: i->set("UNKNOWN_ED"); break;
+		case 0xee: i->set("UNKNOWN_EE", is_arm() ? format_dword(read_word_le()) : format_immediate());  break;
+		case 0xef: i->set("UNKNOWN_EF", is_arm() ? format_dword(read_word_le()) : format_immediate()); break; // this cant be right
+		case 0xf0: i->set("UNKNOWN_F0", format_immediate()); break;
 		case 0xf1: i->set("UNKNOWN_F1"); break; //!!
 		case 0xf2: //!!
 			i->set("UNKNOWN_F2");
-			i->operands = format_immediate();
+			i->operands = ((peek_byte() != 0xff) && (peek_byte() != 0xfe)) ? format_immediate() : format_byte();
 			i->operands += ", " + format_immediate();
 			break;
-		case 0xf3: i->set("UNKNOWN_F3", format_dword()); break;
-		case 0xf4: i->set("UNKNOWN_F4"); break;
+		case 0xf3: {
+			i->set("UNKNOWN_F3");
+			uint8_t b = read_byte(); // first operand is a var number
+			i->operands = format_byte(b);
+			if ((b >> 4) == 0xf) i->operands += ", " + format_immediate(); // var num >= 0xf, encoded as a imm, or its just (b >> 4)
+			i->operands += ", " + format_byte(); // 8 ?
+			i->operands += ", " + format_immediate();
+			i->operands += ", " + format_immediate();
+			break;
+		}
+		case 0xf4: {
+			i->set("UNKNOWN_F4");
+			uint8_t b = read_byte(); // first operand is a var number
+			i->operands = format_byte(b);
+			if (((b >> 4) & 0x7) == 0x7) i->operands += ", " + format_immediate(); // var num >= 0x7, encoded as a imm, or its just (b >> 4)
+			if ((b & 0xf) == 0xf) i->operands += ", " + format_immediate();
+			break;
+		}
+		case 0xf5: i->set("UNKNOWN_F5", format_signature_token()); break;
+		case 0xf6: //!!!
+			i->set("UNKNOWN_F6", format_byte());
+			i->operands += ", " + format_dword(read_word_le()); // 01 BD
+			i->operands += ", " + format_type_token();
+			read_byte(); // 0 ???
+			break;
 		case 0xf7: i->set("UNKNOWN_F7"); break;
 		case 0xf8: i->set("UNKNOWN_F8", format_immediate()); break;
 		case 0xf9: i->set("UNKNOWN_F9", format_dword()); break;
@@ -509,6 +553,11 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 char mdil_decoder::read_signed_byte()
 {
 	return (char) m_buffer[m_pos++];
+}
+
+unsigned char mdil_decoder::peek_byte()
+{
+	return m_buffer[m_pos];
 }
 
 unsigned char mdil_decoder::read_byte()
