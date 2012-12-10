@@ -1,16 +1,19 @@
 #pragma once
 
 #include "mdil_data.h"
+#include "cli_metadata_reader.h"
 
 class console_dumper
 {
 	const mdil_data& m_data;
+	std::shared_ptr<cli_metadata_reader> m_metadata;
+
 	void dump_bytes_int (const shared_vector<unsigned char>& data, size_t offset, size_t count);
 	std::unordered_map<unsigned long, std::string> ext_modules;
 	void dump_type_def(mdil_type_def* type_def);
 	void dump_type_spec(mdil_type_spec* type_spec);
 public:
-	console_dumper(const mdil_data& data) : m_data(data) {}
+	console_dumper(const mdil_data& data, const std::shared_ptr<cli_metadata_reader>& metadata) : m_data(data), m_metadata(metadata) {}
 	void dump_mdil_header(const char* title = nullptr, const char* description = nullptr);
 	void dump_mdil_header_2(const char* title = nullptr, const char* description = nullptr);
 	void dump_bytes (const shared_vector<unsigned char>& data, const char* title = nullptr, const char* description = nullptr);

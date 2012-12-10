@@ -240,7 +240,7 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 		}
 		if (type_def->enclosing_type_token != mdTypeDefNil) {
 			if (notes) printf_s(" ");
-			printf_s("// enclosing type %08X", type_def->enclosing_type_token);
+			printf_s("// enclosing type %s", m_metadata->format_token(type_def->enclosing_type_token).c_str());
 			notes = true;
 		}
 		if (notes) printf_s("\n");
@@ -263,17 +263,21 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 		default: break;
 		}
 
+		bool is_iface = (type_def->attributes & tdClassSemanticsMask & tdInterface) == tdInterface;
+
 		if ((type_def->attributes & tdAbstract) && (type_def->attributes & tdSealed)) printf_s("static ");
 		else {
-			if (type_def->attributes & tdAbstract) printf_s("abstract ");
+			if (!is_iface && (type_def->attributes & tdAbstract)) printf_s("abstract ");
 			if (type_def->attributes & tdSealed) printf_s("sealed ");
 		}
 
-		if (type_def->attributes & tdClassSemanticsMask & tdInterface) {
-			printf_s("interface_%08X", type_def->token);
+		if (is_iface) {
+			printf_s("interface ");
 		} else {
-			printf_s("class_%08X", type_def->token);
+			printf_s("class ");
 		}
+
+		printf_s("%s", m_metadata->format_token(type_def->token).c_str());
 
 		if (type_def->generic_parameters) {
 			printf_s("<");
@@ -281,7 +285,7 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				auto param = type_def->generic_parameters->at(i);
 				if (param->attributes & gpCovariant) printf_s("out ");
 				else if (param->attributes & gpContravariant) printf_s("in ");
-				printf_s("param_%06X", param->param);
+				printf_s("%s", m_metadata->format_token(param->token).c_str());
 				if (i < (type_def->generic_parameters.size()-1)) printf_s(",");
 			}
 			printf_s(">");
@@ -291,20 +295,33 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 			printf_s(" : ");
 
 		bool base = false;
-		if (!IsNilToken(type_def->base_type_token)) { base = true; printf_s("type_%08X", type_def->base_type_token); };
+		if (!IsNilToken(type_def->base_type_token)) {
+			base = true;
+			printf_s("%s", m_metadata->format_token(type_def->base_type_token).c_str());
+		};
 
 		for(auto it = begin(type_def->impl_interfaces); it != end(type_def->impl_interfaces); ++it) {
 			if (base) printf_s(", "); else base = true;
-			printf_s("interface_%08X", *it);
+			printf_s("%s", m_metadata->format_token(**it).c_str());
 		}
 		if (type_def->attributes & tdSpecialName) printf_s(" // SpecialName");
 		if (type_def->attributes & tdRTSpecialName) printf_s(" // RTSpecialName");
 		printf_s("\n");
+
+// 		m_metadata_reader->dump_type(type_def->token);
+
 		printf_s("{\n");
+		if(type_def->fields.size() > 0) printf_s("// fields\n");
 		for(auto it = begin(type_def->fields); it != end(type_def->fields); ++it) {
 			if (*it) {
-				printf_s("\t%s%s%s field_%08X;", field_storage[it->get()->storage], field_protection[it->get()->protection], format_element_type(it->get()->element_type), it->get()->token);
-				if (it->get()->element_type == ELEMENT_TYPE_VALUETYPE) printf_s(" // box = %08X", it->get()->boxing_type_token);
+				printf_s("\t%s%s", field_storage[it->get()->storage], field_protection[it->get()->protection]);
+				if (it->get()->boxing_type_token) {
+					printf_s("%s ", m_metadata->format_token(*it->get()->boxing_type_token).c_str());
+				} else {
+					printf_s("%s ", format_element_type(it->get()->element_type));
+				}
+				printf_s("%s;", m_metadata->format_token(it->get()->token).c_str());
+
 				if (it->get()->explicit_offset) printf_s(" // offset = %04X", *it->get()->explicit_offset);
 				printf_s("\n");
 			} else {
@@ -312,6 +329,8 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				break;
 			}
 		}
+
+		if(type_def->methods.size() > 0) printf_s("// methods\n");
 		for(auto it = begin(type_def->methods); it != end(type_def->methods); ++it) {
 			auto method = *it;
 			if (method) {
@@ -332,7 +351,7 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				if (method->attributes & mdNewSlot) printf_s("new ");
 				if (method->attributes & mdAbstract) printf_s("abstract ");
 				
-				printf_s("method_%08X", method->token);
+				printf_s("%s", m_metadata->format_token(method->token).c_str());
 
 				if (method->generic_parameters) {
 					printf_s("<");
@@ -340,7 +359,7 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 						auto param = method->generic_parameters->at(i);
 						if (param->attributes & gpCovariant) printf_s("out ");
 						else if (param->attributes & gpContravariant) printf_s("in ");
-						printf_s("param_%06X", param->param);
+						printf_s("%s", m_metadata->format_token(param->token).c_str());
 						if (i < (method->generic_parameters.size()-1)) printf_s(",");
 					}
 					printf_s(">");
@@ -363,7 +382,8 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 		for(auto it = begin(type_def->impl_interface_methods); it != end(type_def->impl_interface_methods); ++it) {
 			auto method = *it;
 			if (method) {
-				printf_s("\tmethod_%08X : interface_method_%08X", method->token, method->overridden_method_token);
+				printf_s("\t%s : %s", m_metadata->format_token(method->token).c_str(),
+					m_metadata->format_token(method->overridden_method_token).c_str());
 				printf_s("\n");
 			}
 		}
@@ -538,8 +558,8 @@ void console_dumper::dump_type_spec( mdil_type_spec* type_spec )
 	case ELEMENT_TYPE_STRING: printf_s("string"); break;
 	case ELEMENT_TYPE_PTR: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("*"); break;
 	case ELEMENT_TYPE_BYREF: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("@"); break;
-	case ELEMENT_TYPE_VALUETYPE: printf_s("struct_%08X", ((mdil_type_spec_with_number*)type_spec)->number); break;
-	case ELEMENT_TYPE_CLASS: printf_s("class_%08X", ((mdil_type_spec_with_token*)type_spec)->token); break;
+	case ELEMENT_TYPE_VALUETYPE: printf_s("struct %s", m_metadata->format_token(((mdil_type_spec_with_type*)type_spec)->type_token).c_str()); break;
+	case ELEMENT_TYPE_CLASS: printf_s("class %s", m_metadata->format_token(((mdil_type_spec_with_type*)type_spec)->type_token).c_str()); break;
 	case ELEMENT_TYPE_VAR: printf_s("VAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
 	case ELEMENT_TYPE_ARRAY: {
 		auto array = (mdil_type_spec_array*) type_spec;
@@ -599,7 +619,7 @@ void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const c
 		for (unsigned long i = 1; i < m_data.method_specs.method_specs.size(); i++) {
 			auto method_spec = m_data.method_specs.method_specs->at(i);
 			printf_s("METS(%04X)=TYPE(%04X) :\n", i, m_data.method_specs.raw->at(i));
-			printf_s("method_%08X", method_spec->token);
+			printf_s("%s", m_metadata->format_token(method_spec->token).c_str());
 			printf_s("(");
 			for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {
 				dump_type_spec(method_spec->parameters->at(i).get());

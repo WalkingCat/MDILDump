@@ -8,6 +8,7 @@
     <ClInclude Include="console_dumper.h" />
     <ClInclude Include="mdil_parser.h" />
     <ClInclude Include="mdil_ctl_parser.h" />
+    <ClInclude Include="cli_metadata_reader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="mdildump.cpp" />
@@ -16,5 +17,6 @@
     <ClCompile Include="console_dumper.cpp" />
     <ClCompile Include="mdil_parser.cpp" />
     <ClCompile Include="mdil_ctl_parser.cpp" />
+    <ClCompile Include="cli_metadata_reader.cpp" />
   </ItemGroup>
 </Project>

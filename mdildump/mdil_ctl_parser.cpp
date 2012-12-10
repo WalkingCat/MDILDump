@@ -172,10 +172,10 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 		for (uint32_t i = 0; i < *generic_parameter_count; ++i) {
 			byte = read_byte();
 			if (byte == GENERIC_PARAMETER) {
-				uint32_t param = read_compressed_uint32(); // what ??
+				uint32_t rid = read_compressed_uint32(); // what ??
 				CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32(); // only variance ?
-				ret->generic_parameters->at(i) = make_shared<mdil_generic_parameter>(param, attributes);
-				log_type_def("GENERIC_PARAMETER %06X %08X", param, attributes);
+				ret->generic_parameters->at(i) = make_shared<mdil_generic_parameter>(mdtGenericParam | rid, attributes);
+				log_type_def("GENERIC_PARAMETER %06X %08X", rid, attributes);
 
 			} else { log_type_def("expecting GENERIC_PARAMTER got %02X", byte); fine = false; }
 		}
@@ -356,8 +356,8 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 				m_pos++;
 				if (!diff) log_type_def("\tInterface Method %d", ret->impl_interface_methods.size());
 				auto method = make_shared<mdil_method_def>();
-				method->token = current_method_token;
-				if (diff) method->token += *diff;
+				method->token = current_method_token + 1;
+				if (diff) method->token += *diff; // logic here is different from method def ??? bizarre !!!
 				current_method_token = method->token;
 				method->overridden_method_token = read_compressed_method_token();
 				log_type_def("\t\tIMPLEMENT_INTERFACE_METHOD=%08X", method->overridden_method_token);
@@ -395,22 +395,22 @@ shared_ptr<mdil_field_def> mdil_ctl_parser::parse_field_def(bool peek)
 	auto field = make_shared<mdil_field_def>();
 	bool fine = true;
 
-	field->token = current_field_token + 1;
+	field->token = current_field_token;
 
 	uint8_t byte = m_buffer[m_pos++];
 
 	if (byte == ADVANCE_FIELDDEF) {
-		int32_t advance_diff = read_compressed_int32();
+		int32_t advance_diff = read_compressed_uint32();
 		log_type_def("\t\tADVANCE_FIELDDEF=%d", advance_diff);
-		field->token += advance_diff;
+		field->token = TokenFromRid(advance_diff, mdtFieldDef); // not advancing but reset !?!
 		byte = read_byte();
 	} else if ((byte >= ADVANCE_FIELDDEF_SHORT_MINUS_8) && (byte <= ADVANCE_FIELDDEF_SHORT_PLUS_8)) {
-		log_type_def("\t\tADVANCE_FIELDDEF_SHORT=%d", (int) byte - ADVANCE_FIELDDEF_SHORT_0);
-		field->token += (int) byte - ADVANCE_FIELDDEF_SHORT_0;
+		log_type_def("\t\tADVANCE_FIELDDEF_SHORT=%d", byte - ADVANCE_FIELDDEF_SHORT_0);
+		field->token = TokenFromRid(byte - ADVANCE_FIELDDEF_SHORT_0, mdtFieldDef); // not advancing but reset !?!
 		byte = read_byte();
 	}
 
-	current_field_token = field->token;
+	field->token++;
 
 	if (byte == FIELD_OFFSET) {
 		uint32_t offset = read_compressed_uint32();
@@ -444,11 +444,15 @@ shared_ptr<mdil_field_def> mdil_ctl_parser::parse_field_def(bool peek)
 	}
 
 	if (fine && (field->element_type == ELEMENT_TYPE_VALUETYPE)) {
-		field->boxing_type_token = read_compressed_type_token();
-		log_type_def("\t\tBox Token=%08X", field->boxing_type_token);
+		field->boxing_type_token = make_shared<mdToken>(read_compressed_type_token());
+		log_type_def("\t\tBox Token=%08X", *field->boxing_type_token);
 	}
 
-	if (!fine) field.reset();
+	if (fine) {
+		current_field_token = field->token;
+	} else {
+		field.reset();
+	}
 	
 	return field;
 }
@@ -458,23 +462,25 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	auto method = make_shared<mdil_method_def>();
 	bool fine = true;
 
-	method->token = current_method_token + 1;
+	method->token = current_method_token;
 
 	uint8_t byte = read_byte();
 
 	if (byte == ADVANCE_METHODDEF) {
-		int32_t advance_diff = read_compressed_int32();
-		log_type_def("\t\tADVANCE_METHODDEF=%d", advance_diff);
-		method->token += advance_diff;
+		int32_t advance_diff = read_compressed_uint32();
+		log_type_def("\t\tADVANCE_METHODDEF=%x", advance_diff);
+		method->token = TokenFromRid(advance_diff, mdtMethodDef); // not advancing but reset !?!
 		byte = read_byte();
 	} else if ((byte >= ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= ADVANCE_METHODDEF_SHORT_PLUS_8)) {
-		log_type_def("\t\tADVANCE_METHODDEF_SHORT=%d", int32_t(byte) - ADVANCE_METHODDEF_SHORT_0);
-		method->token += byte - ADVANCE_METHODDEF_SHORT_0;
+		log_type_def("\t\tADVANCE_METHODDEF_SHORT=%x", byte - ADVANCE_METHODDEF_SHORT_0);
+		method->token = TokenFromRid(byte - ADVANCE_METHODDEF_SHORT_0, mdtMethodDef); // not advancing but reset !?!
 		byte = read_byte();
 	}
 
+	method->token++;
 	current_method_token = method->token;
-
+	log_type_def("\t\tToken = %08x", method->token);
+	
 	if (byte == METHOD) {
 		method->kind = mdil_method_def::mkNormal;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
@@ -551,11 +557,11 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	if (fine) {
 		while (peek_byte() == GENERIC_PARAMETER) {
 			read_byte();
-			uint32_t param = read_compressed_uint32();
+			uint32_t rid = read_compressed_uint32();
 			CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32();
 			if (!method->generic_parameters) method->generic_parameters.resize(0);
-			method->generic_parameters->push_back(make_shared<mdil_generic_parameter>(param, attributes));
-			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", param, attributes);
+			method->generic_parameters->push_back(make_shared<mdil_generic_parameter>(mdtGenericParam | rid, attributes));
+			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", rid, attributes);
 		}
 	}
 
@@ -563,7 +569,7 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	return method;
 }
 
-shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec()
+shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec(const uint32_t rid)
 {
 	shared_ptr<mdil_type_spec> ret;
 
@@ -588,23 +594,23 @@ shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec()
 	case ELEMENT_TYPE_U:
 	case ELEMENT_TYPE_FNPTR: // TODO
 	case ELEMENT_TYPE_OBJECT:
-		ret = make_shared<mdil_type_spec>((CorElementType) byte);
+		ret = make_shared<mdil_type_spec>(mdtTypeSpec | rid, (CorElementType) byte);
 		break;
 	case ELEMENT_TYPE_PTR:
 	case ELEMENT_TYPE_BYREF:
 	case ELEMENT_TYPE_TYPEDBYREF:
-		ret.reset(new mdil_type_spec_with_child((CorElementType) byte, parse_type_spec()));
+		ret.reset(new mdil_type_spec_with_child(mdtTypeSpec | rid, (CorElementType) byte, parse_type_spec()));
 		break;
 	case ELEMENT_TYPE_VALUETYPE:
 	case ELEMENT_TYPE_CLASS:
-		ret.reset(new mdil_type_spec_with_token((CorElementType) byte, read_compressed_type_token()));
+		ret.reset(new mdil_type_spec_with_type(mdtTypeSpec | rid, (CorElementType) byte, read_compressed_type_token()));
 		break;
 	case ELEMENT_TYPE_VAR:
 	case ELEMENT_TYPE_MVAR:
-		ret.reset(new mdil_type_spec_with_number((CorElementType) byte, read_compressed_uint32()));
+		ret.reset(new mdil_type_spec_with_number(mdtTypeSpec | rid, (CorElementType) byte, read_compressed_uint32()));
 		break;
 	case ELEMENT_TYPE_ARRAY: {
-		auto type = parse_type_spec();
+		auto type = parse_type_spec(0);
 		if (type) {
 			uint32_t rank = read_compressed_uint32();
 
@@ -616,12 +622,12 @@ shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec()
 			vector<uint32_t> lbounds(lbcount);
 			for (uint32_t i = 0; i < lbcount; ++i) lbounds[i] = read_compressed_uint32();
 
-			ret.reset(new mdil_type_spec_array(type, rank, bounds, lbounds));
+			ret.reset(new mdil_type_spec_array(mdtTypeSpec | rid, type, rank, bounds, lbounds));
 		}
 		break;
 	}
 	case ELEMENT_TYPE_SZARRAY:
-		ret.reset(new mdil_type_spec_array(parse_type_spec(), 1));
+		ret.reset(new mdil_type_spec_array(mdtTypeSpec | rid, parse_type_spec(), 1));
 		break;
 	case ELEMENT_TYPE_GENERICINST: {
 		auto type = parse_type_spec();
@@ -633,7 +639,7 @@ shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec()
 				if (arg == nullptr) break;
 				args[i] = arg;
 			}
-			ret.reset(new mdil_type_spec_generic(type, args));
+			ret.reset(new mdil_type_spec_generic(mdtTypeSpec | rid, type, args));
 		}
 		break;
 	}
@@ -678,7 +684,7 @@ void mdil_ctl_parser::parse()
 		auto offset = m_data.type_specs.raw->at(i);;
 		if (offset != 0) {
 			m_pos = offset;
-			m_data.type_specs.type_specs->at(i) = parse_type_spec();
+			m_data.type_specs.type_specs->at(i) = parse_type_spec(i);
 		}
 	}
 

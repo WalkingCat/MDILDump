@@ -79,6 +79,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="cli_metadata_reader.h" />
     <ClInclude Include="console_dumper.h" />
     <ClInclude Include="mdil_ctl_parser.h" />
     <ClInclude Include="mdil_data.h" />
@@ -88,6 +89,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cli_metadata_reader.cpp" />
     <ClCompile Include="console_dumper.cpp" />
     <ClCompile Include="mdil_ctl_parser.cpp" />
     <ClCompile Include="mdil_decoder.cpp" />

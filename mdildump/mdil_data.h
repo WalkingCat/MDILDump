@@ -135,26 +135,27 @@ public:
 
 struct mdil_type_spec
 {
+	const mdTypeSpec token;
 	const CorElementType element_type;
-	mdil_type_spec(CorElementType _type) : element_type(_type) {}
+	mdil_type_spec(const mdTypeSpec _token, CorElementType _type) : token(_token), element_type(_type) {}
 };
 
-struct mdil_type_spec_with_token : mdil_type_spec
+struct mdil_type_spec_with_type : mdil_type_spec
 {
-	const mdToken token;
-	mdil_type_spec_with_token(const CorElementType _type, const mdToken _token) : mdil_type_spec(_type), token(_token) {}
+	const mdToken type_token;
+	mdil_type_spec_with_type(const mdTypeSpec _token, const CorElementType _type, const mdToken _type_token) : mdil_type_spec(_token, _type), type_token(_type_token) {}
 };
 
 struct mdil_type_spec_with_number : mdil_type_spec
 {
 	const uint32_t number;
-	mdil_type_spec_with_number(const CorElementType _type, const uint32_t _number) : mdil_type_spec(_type), number(_number) {}
+	mdil_type_spec_with_number(const mdTypeSpec _token, const CorElementType _type, const uint32_t _number) : mdil_type_spec(_token, _type), number(_number) {}
 };
 
 struct mdil_type_spec_with_child : mdil_type_spec
 {
 	const std::shared_ptr<mdil_type_spec> child;
-	mdil_type_spec_with_child(const CorElementType _type, const std::shared_ptr<mdil_type_spec>& _child) : mdil_type_spec(_type), child(_child) {}
+	mdil_type_spec_with_child(const mdTypeSpec _token, const CorElementType _type, const std::shared_ptr<mdil_type_spec>& _child) : mdil_type_spec(_token, _type), child(_child) {}
 };
 
 struct mdil_type_spec_array : mdil_type_spec_with_child
@@ -162,19 +163,19 @@ struct mdil_type_spec_array : mdil_type_spec_with_child
 	const uint32_t rank;
 	const std::vector<uint32_t> bounds;
 	const std::vector<uint32_t> lbounds;
-	mdil_type_spec_array(const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank)
-		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank) {}
-	mdil_type_spec_array(const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank, const std::vector<uint32_t>& _bounds, const std::vector<uint32_t>& _lbounds)
-		: mdil_type_spec_with_child(ELEMENT_TYPE_ARRAY, _child), rank(_rank), bounds(_bounds), lbounds(_lbounds) {}
+	mdil_type_spec_array(const mdTypeSpec _token, const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank)
+		: mdil_type_spec_with_child(_token, ELEMENT_TYPE_ARRAY, _child), rank(_rank) {}
+	mdil_type_spec_array(const mdTypeSpec _token, const std::shared_ptr<mdil_type_spec>& _child, const uint32_t _rank, const std::vector<uint32_t>& _bounds, const std::vector<uint32_t>& _lbounds)
+		: mdil_type_spec_with_child(_token, ELEMENT_TYPE_ARRAY, _child), rank(_rank), bounds(_bounds), lbounds(_lbounds) {}
 };
 
 struct mdil_type_spec_generic : mdil_type_spec_with_child
 {
 	const std::vector<std::shared_ptr<mdil_type_spec>> type_arguments;
-	mdil_type_spec_generic(const std::shared_ptr<mdil_type_spec>& _child)
-		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child) {}
-	mdil_type_spec_generic(const std::shared_ptr<mdil_type_spec>& _child, const std::vector<std::shared_ptr<mdil_type_spec>>& _args)
-		: mdil_type_spec_with_child(ELEMENT_TYPE_GENERICINST, _child), type_arguments(_args) {}
+	mdil_type_spec_generic(const mdTypeSpec _token, const std::shared_ptr<mdil_type_spec>& _child)
+		: mdil_type_spec_with_child(_token, ELEMENT_TYPE_GENERICINST, _child) {}
+	mdil_type_spec_generic(const mdTypeSpec _token, const std::shared_ptr<mdil_type_spec>& _child, const std::vector<std::shared_ptr<mdil_type_spec>>& _args)
+		: mdil_type_spec_with_child(_token, ELEMENT_TYPE_GENERICINST, _child), type_arguments(_args) {}
 };
 
 struct mdil_type_specs
@@ -224,14 +225,14 @@ struct mdil_field_def
 		fpPublic
 	} protection;
 	CorElementType element_type;
-	mdToken boxing_type_token;
+	std::shared_ptr<mdToken> boxing_type_token;
 };
 
 struct mdil_generic_parameter
 {
-	uint32_t param;
+	mdGenericParam token;
 	CorGenericParamAttr attributes; 
-	mdil_generic_parameter(const uint32_t _param, const CorGenericParamAttr _attributes) : param(_param), attributes(_attributes) {}
+	mdil_generic_parameter(const uint32_t _token, const CorGenericParamAttr _attributes) : token(_token), attributes(_attributes) {}
 };
 
 struct mdil_method_def

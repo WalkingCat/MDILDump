@@ -3,6 +3,7 @@
 #include "mdil_parser.h"
 #include "mdil_decoder.h"
 #include "mdil_ctl_parser.h"
+#include "cli_metadata_reader.h"
 #include "console_dumper.h"
 
 using namespace std;
@@ -142,7 +143,12 @@ int wmain(int argc, wchar_t* argv[])
 
 	mdil_ctl_parser(data).parse();
 
-	auto dumper = std::make_shared<console_dumper>(data);
+	auto metadata_reader = make_shared<cli_metadata_reader>(assembly);
+
+	if(!metadata_reader->init()) {
+		printf_s("CLI Metadata Reader initialization failed\n");
+	}
+	auto dumper = std::make_shared<console_dumper>(data, metadata_reader);
 
 	if (options & dumpHeader)			dumper->dump_mdil_header("MDIL Header");
 	if (options & dumpHeader2)			dumper->dump_mdil_header_2("MDIL Header 2");
