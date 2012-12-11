@@ -10,6 +10,8 @@ class console_dumper
 
 	void dump_bytes_int (const shared_vector<unsigned char>& data, size_t offset, size_t count);
 	std::unordered_map<unsigned long, std::string> ext_modules;
+	void dump_generic_params(const shared_vector<std::shared_ptr<const mdil_generic_parameter>>& generic_params);
+	void dump_method_def(const mdil_method_def* method_def);
 	void dump_type_def(mdil_type_def* type_def);
 	void dump_type_spec(mdil_type_spec* type_spec);
 public:

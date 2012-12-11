@@ -25,6 +25,41 @@ void dump_flags( uint32_t flags )
 	}
 }
 
+const char* format_element_type(CorElementType type) {
+	switch (type)
+	{
+	case ELEMENT_TYPE_VOID: return "void";
+	case ELEMENT_TYPE_BOOLEAN: return "bool";
+	case ELEMENT_TYPE_CHAR: return "char";
+	case ELEMENT_TYPE_I1: return "sbyte";
+	case ELEMENT_TYPE_U1: return "byte";
+	case ELEMENT_TYPE_I2: return "short";
+	case ELEMENT_TYPE_U2: return "ushort";
+	case ELEMENT_TYPE_I4: return "int";
+	case ELEMENT_TYPE_U4: return "uint";
+	case ELEMENT_TYPE_I8: return "long";
+	case ELEMENT_TYPE_U8: return "ulong";
+	case ELEMENT_TYPE_R4: return "float";
+	case ELEMENT_TYPE_R8: return "double";
+	case ELEMENT_TYPE_STRING: return "string";
+	case ELEMENT_TYPE_PTR: return "*";
+	case ELEMENT_TYPE_BYREF: return "@";
+	case ELEMENT_TYPE_VALUETYPE: return "VALUETYPE";
+	case ELEMENT_TYPE_CLASS: return "CLASS";
+	case ELEMENT_TYPE_VAR: return "VAR";
+	case ELEMENT_TYPE_ARRAY: return "ARRAY";
+	case ELEMENT_TYPE_GENERICINST: return "GENERICINST";
+	case ELEMENT_TYPE_TYPEDBYREF:  return "TYPEDBYREF";
+	case ELEMENT_TYPE_I: return "IntPtr";
+	case ELEMENT_TYPE_U: return "UIntPtr";
+	case ELEMENT_TYPE_FNPTR: return "FNPTR";
+	case ELEMENT_TYPE_OBJECT: return "object";
+	case ELEMENT_TYPE_SZARRAY: return "SZARRAY";
+	case ELEMENT_TYPE_MVAR:	return "MVAR";
+	default: return "####";
+	}
+}
+
 void console_dumper::dump_mdil_header( const char* title, const char* description )
 {
 	if (!m_data.header) {
@@ -187,38 +222,55 @@ void console_dumper::dump_ulongs(const shared_vector<unsigned long>& data, const
 	printf_s("\n");
 }
 
-const char* format_element_type(CorElementType type) {
-	switch (type)
-	{
-	case ELEMENT_TYPE_VOID: return "void";
-	case ELEMENT_TYPE_BOOLEAN: return "bool";
-	case ELEMENT_TYPE_CHAR: return "char";
-	case ELEMENT_TYPE_I1: return "sbyte";
-	case ELEMENT_TYPE_U1: return "byte";
-	case ELEMENT_TYPE_I2: return "short";
-	case ELEMENT_TYPE_U2: return "ushort";
-	case ELEMENT_TYPE_I4: return "int";
-	case ELEMENT_TYPE_U4: return "uint";
-	case ELEMENT_TYPE_I8: return "long";
-	case ELEMENT_TYPE_U8: return "ulong";
-	case ELEMENT_TYPE_R4: return "float";
-	case ELEMENT_TYPE_R8: return "double";
-	case ELEMENT_TYPE_STRING: return "string";
-	case ELEMENT_TYPE_PTR: return "*";
-	case ELEMENT_TYPE_BYREF: return "@";
-	case ELEMENT_TYPE_VALUETYPE: return "VALUETYPE";
-	case ELEMENT_TYPE_CLASS: return "CLASS";
-	case ELEMENT_TYPE_VAR: return "VAR";
-	case ELEMENT_TYPE_ARRAY: return "ARRAY";
-	case ELEMENT_TYPE_GENERICINST: return "GENERICINST";
-	case ELEMENT_TYPE_TYPEDBYREF:  return "TYPEDBYREF";
-	case ELEMENT_TYPE_I: return "IntPtr";
-	case ELEMENT_TYPE_U: return "UIntPtr";
-	case ELEMENT_TYPE_FNPTR: return "FNPTR";
-	case ELEMENT_TYPE_OBJECT: return "object";
-	case ELEMENT_TYPE_SZARRAY: return "SZARRAY";
-	case ELEMENT_TYPE_MVAR:	return "MVAR";
-	default: return "####";
+void console_dumper::dump_generic_params( const shared_vector<std::shared_ptr<const mdil_generic_parameter>>& generic_params )
+{
+	if (generic_params) {
+		printf_s("<");
+		for(uint32_t i = 0; i < generic_params.size(); ++i) {
+			auto param = generic_params->at(i);
+			if (param->attributes & gpCovariant) printf_s("out ");
+			else if (param->attributes & gpContravariant) printf_s("in ");
+			printf_s("%s", m_metadata->format_token(param->token).c_str());
+			if (i < (generic_params.size()-1)) printf_s(",");
+		}
+		printf_s(">");
+	}
+}
+
+void console_dumper::dump_method_def( const mdil_method_def* method_def )
+{
+	if (method_def) {
+		printf_s("\t");
+		switch (method_def->attributes & mdMemberAccessMask)
+		{
+		case mdPrivateScope: printf_s("/*PrivateScope*/ "); break;
+		case mdPrivate: printf_s("private "); break;
+		case mdFamANDAssem: printf_s("/*FamANDAssem*/ "); break;
+		case mdAssem: printf_s("internal "); break;
+		case mdFamily: printf_s("protected "); break;
+		case mdFamORAssem: printf_s("protected internal "); break;
+		case mdPublic: printf_s("public "); break;
+		}
+		if (method_def->attributes & mdStatic) printf_s("static ");
+		if (method_def->attributes & mdFinal) printf_s("sealed ");
+		if (method_def->attributes & mdVirtual) printf_s("virtual ");
+		if (method_def->attributes & mdNewSlot) printf_s("new ");
+		if (method_def->attributes & mdAbstract) printf_s("abstract ");
+
+		printf_s("%s", m_metadata->format_token(method_def->token).c_str());
+
+		dump_generic_params(method_def->generic_parameters);
+
+		printf_s(";");
+
+		if (method_def->impl_hints & mdil_method_def::mihCtor) printf_s(" //ctor");
+		if (method_def->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
+		if (method_def->impl_hints & mdil_method_def::mihCCtor) printf_s(" //cctor");
+		if (method_def->attributes & mdRTSpecialName) printf_s(" //RTSpecialName");
+		else if (method_def->attributes & mdSpecialName) printf_s(" //SpecialName");
+		if (method_def->attributes & mdPinvokeImpl) printf_s(" //PInvoke [%s]%s", m_data.name_pool->data() + method_def->module_name, m_data.name_pool->data() + method_def->entry_point_name);
+		if (method_def->attributes & mdUnmanagedExport) printf_s(" //UnmanagedExport %s", m_data.name_pool->data() + method_def->entry_point_name);
+		if (method_def->kind == mdil_method_def::mkRuntimeImport) printf_s(" //RuntimeImport %s", m_data.name_pool->data() + method_def->entry_point_name);
 	}
 }
 
@@ -332,51 +384,8 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 
 		if(type_def->methods.size() > 0) printf_s("// methods\n");
 		for(auto it = begin(type_def->methods); it != end(type_def->methods); ++it) {
-			auto method = *it;
-			if (method) {
-				printf_s("\t");
-				switch (method->attributes & mdMemberAccessMask)
-				{
-				case mdPrivateScope: printf_s("/*PrivateScope*/ "); break;
-				case mdPrivate: printf_s("private "); break;
-				case mdFamANDAssem: printf_s("/*FamANDAssem*/ "); break;
-				case mdAssem: printf_s("internal "); break;
-				case mdFamily: printf_s("protected "); break;
-				case mdFamORAssem: printf_s("protected internal "); break;
-				case mdPublic: printf_s("public "); break;
-				}
-				if (method->attributes & mdStatic) printf_s("static ");
-				if (method->attributes & mdFinal) printf_s("sealed ");
-				if (method->attributes & mdVirtual) printf_s("virtual ");
-				if (method->attributes & mdNewSlot) printf_s("new ");
-				if (method->attributes & mdAbstract) printf_s("abstract ");
-				
-				printf_s("%s", m_metadata->format_token(method->token).c_str());
-
-				if (method->generic_parameters) {
-					printf_s("<");
-					for(uint32_t i = 0; i < method->generic_parameters.size(); ++i) {
-						auto param = method->generic_parameters->at(i);
-						if (param->attributes & gpCovariant) printf_s("out ");
-						else if (param->attributes & gpContravariant) printf_s("in ");
-						printf_s("%s", m_metadata->format_token(param->token).c_str());
-						if (i < (method->generic_parameters.size()-1)) printf_s(",");
-					}
-					printf_s(">");
-				}
-
-				printf_s(";");
-
-				if (method->impl_hints & mdil_method_def::mihCtor) printf_s(" //ctor");
-				if (method->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
-				if (method->impl_hints & mdil_method_def::mihCCtor) printf_s(" //cctor");
-				if (method->attributes & mdRTSpecialName) printf_s(" //RTSpecialName");
-				else if (method->attributes & mdSpecialName) printf_s(" //SpecialName");
-				if (method->attributes & mdPinvokeImpl) printf_s(" //PInvoke [%s]%s", m_data.name_pool->data() + method->module_name, m_data.name_pool->data() + method->entry_point_name);
-				if (method->attributes & mdUnmanagedExport) printf_s(" //UnmanagedExport %s", m_data.name_pool->data() + method->entry_point_name);
-				if (method->kind == mdil_method_def::mkRuntimeImport) printf_s(" //RuntimeImport %s", m_data.name_pool->data() + method->entry_point_name);
-				printf_s("\n");
-			}
+			dump_method_def(it->get());
+			printf_s("\n");
 		}
 
 		for(auto it = begin(type_def->impl_interface_methods); it != end(type_def->impl_interface_methods); ++it) {
@@ -411,27 +420,21 @@ void console_dumper::dump_type_map( const char* title /*= nullptr*/, const char*
 
 void console_dumper::dump_method_map(const char* title, const char* description)
 {
-	print_vector_size(m_data.method_map, title, description);
+	if (m_data.method_map.method_def_mappings && m_data.method_map.raw) {
+		print_vector_size(m_data.method_map.method_def_mappings, title, description);
 
-	if (m_data.method_map.size() > 0) {
-		unsigned long i = 0;
-		for (i = 0; i < m_data.method_map.size(); i++) {
-			if (((i % 4) == 0)) printf_s("%06X: ", i);
-
-			unsigned long method = m_data.method_map->at(i);
-			if (method == 0xCAFEDEAD) { // WTF ?
-				printf_s("????: %08X", method);
-			} else if (method & (1 << 31)) {
-				printf_s("GENI: %08X", method  & ~(1 << 31));
-			} else {
-				printf_s("CODE: %08X", method);
+		for (uint32_t i = 1; i < m_data.method_map.method_def_mappings.size(); ++i) {
+			auto mapping = m_data.method_map.method_def_mappings->at(i);
+			printf_s("METD(%04X)=%s(%04X) : ", i, mapping->is_generic_inst ? "GENI" : "CODE", mapping->offset);
+			if (mapping->method_def) {
+				auto type_def = mapping->method_def->type_def.lock();
+				if (type_def) printf_s("%s.", m_metadata->format_token(type_def->token).c_str());
+				printf_s("%s", m_metadata->format_token(mapping->method_def->token).c_str());
+				dump_generic_params(mapping->method_def->generic_parameters);
 			}
-
-			printf_s( ((i % 4) == 3) ? "\n" : " ");
+			printf_s("\n");
 		}
-		if ((i % 4) != 0) printf_s("\n");
-	}
-	printf_s("\n");
+	} else dump_ulongs(m_data.method_map.raw, title, description);
 }
 
 void console_dumper::dump_generic_instances( const char* title, const char* description )
@@ -446,14 +449,29 @@ void console_dumper::dump_generic_instances( const char* title, const char* desc
 			size_t pos = 4;
 			while (pos < m_data.generic_instances.size()) {
 				auto genInst = (GenericInst*) &m_data.generic_instances->at(pos);
-				printf_s("%08X: InstCount = %d, Arity = %d ", pos, genInst->InstCount, genInst->Arity);
+				printf_s("%08X: InstCount = %d, ArgCount = %d\n", pos, genInst->InstCount, genInst->Arity);
 				if ((genInst->InstCount == 0) || (genInst->Arity == 0)) break;
 				pos += sizeof(GenericInst);
-				pos += (genInst->InstCount * genInst->Arity) * 4; // here is a matrix, skip it
-				printf_s("\t");
 				for (WORD i = 0; i < genInst->InstCount; i++) {
-					printf_s("[CODE: %08X DBUG: %08X] ", *(DWORD*) &m_data.generic_instances->at(pos), *(DWORD*) &m_data.generic_instances->at(pos + 4));
+					printf_s("\tInst[%d] = [CODE: %08X DBUG: %08X]\n", i, *(DWORD*) &m_data.generic_instances->at(pos), *(DWORD*) &m_data.generic_instances->at(pos + 4));
 					pos += 4 * 2;
+				}
+				for (uint32_t i = 0; i < genInst->InstCount; ++i) {
+					for (uint32_t a = 0; a < genInst->Arity; ++a) {
+						uint32_t types = *(DWORD*) (m_data.generic_instances->data() + pos);
+						pos += 4;
+						printf_s("\tInst[%d] Arg[%d] = ", i, a, types);
+						for (uint32_t b = 0; b < 32; ++b) {
+							if (types & (1 << b)) {
+								if (b <= 0x12) printf_s("%s,", format_element_type((CorElementType)b));
+								else if (b == 0x17) printf_s("NULLABLE,");
+								else if (b == 0x1e) printf_s("SHARED_VALUETYPE,");
+								else if (b == 0x1f) printf_s("SHARED_NULLABLE,");
+								else printf_s("???,");
+							}
+						}
+						printf_s("\n");
+					}
 				}
 				printf_s("\n");
 			}
@@ -618,7 +636,7 @@ void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const c
 
 		for (unsigned long i = 1; i < m_data.method_specs.method_specs.size(); i++) {
 			auto method_spec = m_data.method_specs.method_specs->at(i);
-			printf_s("METS(%04X)=TYPE(%04X) :\n", i, m_data.method_specs.raw->at(i));
+			printf_s("METS(%04X)=TYPE(%04X) : ", i, m_data.method_specs.raw->at(i));
 			printf_s("%s", m_metadata->format_token(method_spec->token).c_str());
 			printf_s("(");
 			for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {

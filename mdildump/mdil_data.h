@@ -235,6 +235,8 @@ struct mdil_generic_parameter
 	mdil_generic_parameter(const uint32_t _token, const CorGenericParamAttr _attributes) : token(_token), attributes(_attributes) {}
 };
 
+struct mdil_type_def;
+
 struct mdil_method_def
 {
 	enum method_kind
@@ -272,6 +274,8 @@ struct mdil_method_def
 	uint32_t entry_point_name;
 	CorUnmanagedCallingConvention calling_convention;
 	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
+
+	std::weak_ptr<mdil_type_def> type_def;
 };
 
 struct mdil_type_def
@@ -296,6 +300,21 @@ struct mdil_type_defs
 {
 	shared_vector<unsigned long> raw;
 	shared_vector<const std::shared_ptr<mdil_type_def>> type_defs;
+};
+
+// Method Map
+
+struct mdil_method_def_mapping
+{
+	std::shared_ptr<mdil_method_def> method_def;
+	bool is_generic_inst : 1;
+	uint32_t offset : 31;
+};
+
+struct mdil_method_map
+{
+	shared_vector<unsigned long> raw;
+	shared_vector<const std::shared_ptr<mdil_method_def_mapping>> method_def_mappings;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -352,7 +371,7 @@ public:
 	shared_vector<unsigned char>	platform_data;
 	shared_vector<unsigned long>	well_known_types;
 	mdil_type_defs					type_map;
-	shared_vector<unsigned long>	method_map;
+	mdil_method_map					method_map;
 	shared_vector<unsigned char>	generic_instances;
 	shared_vector<ExtModRef>		ext_module_refs;
 	shared_vector<ExtTypeRef>		ext_type_refs;

@@ -308,7 +308,12 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 		ret->methods.resize(method_count);
 		for (uint32_t i = 0; i < method_count; i++) {
 			log_type_def("\tMethod %d", i);
-			ret->methods[i] = parse_method_def();
+			auto method = parse_method_def();
+			if (method) {
+				method->type_def = ret;
+				ret->methods[i] = method;
+			} else ret->methods[i].reset();
+
 			fine = ret->methods[i];
 			if (!fine) break;
 		}
@@ -565,7 +570,12 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 		}
 	}
 
-	if (!fine) method.reset();
+	if (fine) {
+		auto rid = RidFromToken(method->token);
+		if (rid < m_data.method_map.method_def_mappings.size()) {
+			m_data.method_map.method_def_mappings->at(rid)->method_def = method;
+		}
+	} else method.reset();
 	return method;
 }
 
@@ -664,6 +674,17 @@ std::shared_ptr<mdil_method_spec> mdil_ctl_parser::parse_method_spec()
 
 void mdil_ctl_parser::parse()
 {
+	// method map
+	m_data.method_map.method_def_mappings.resize(m_data.method_map.raw.size());
+	for (uint32_t i = 1; i < m_data.method_map.raw->size(); ++i) {
+		uint32_t mapping = m_data.method_map.raw->at(i);
+		auto method_def_mapping = make_shared<mdil_method_def_mapping>();
+		method_def_mapping->is_generic_inst = (mapping & (1 << 31)) != 0 ;
+		method_def_mapping->offset = mapping & ~(1 << 31);
+		m_data.method_map.method_def_mappings->at(i) = method_def_mapping;
+	}
+
+	// type map
 	current_field_token = mdFieldDefNil;
 	current_method_token = mdMethodDefNil;
 
@@ -678,6 +699,7 @@ void mdil_ctl_parser::parse()
 		}
 	}
 
+	// type specs
 	m_data.type_specs.type_specs.resize(m_data.type_specs.raw.size());
 
 	for (unsigned long i = 1; i < m_data.type_specs.raw.size(); i++) {
@@ -688,6 +710,7 @@ void mdil_ctl_parser::parse()
 		}
 	}
 
+	// method specs
 	m_data.method_specs.method_specs.resize(m_data.method_specs.raw.size());
 
 	for (unsigned long i = 1; i < m_data.method_specs.raw.size(); i++) {

@@ -154,8 +154,8 @@ int wmain(int argc, wchar_t* argv[])
 	if (options & dumpHeader2)			dumper->dump_mdil_header_2("MDIL Header 2");
 	if (options & dumpPlatformData)		dumper->dump_bytes(data.platform_data, "Platform Data");
 	if (options & dumpWellKnownTypes)	dumper->dump_ulongs(data.well_known_types, "Well Known Types Table");
-	if (options & dumpTypeMap)			dumper->dump_type_map("Type Map", "Type Def Offsets in Types section");
-	if (options & dumpMethodMap)		dumper->dump_method_map("Method Map", "Offsets in Generic Instances or Code section");
+	if (options & dumpTypeMap)			dumper->dump_type_map("Type Map", "TypeDef Offsets in Types section");
+	if (options & dumpMethodMap)		dumper->dump_method_map("Method Map", "MethodDef Offsets in Generic Instances or Code section");
 	if (options & dumpGenericInstances)	dumper->dump_generic_instances("Generic Instances");
 	if (options & dumpExtModuleRefs)	dumper->dump_ext_module_refs("External Module References", "Offsets in Name Pool section");
 	if (options & dumpExtTypeRefs)		dumper->dump_ext_type_refs("External Type References", "Index in External Module References section, and an index");
