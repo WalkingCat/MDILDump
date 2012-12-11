@@ -168,13 +168,13 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 	}
 
 	if (generic_parameter_count) {
-		ret->generic_parameters.resize(*generic_parameter_count);
+		ret->generic_params.resize(*generic_parameter_count);
 		for (uint32_t i = 0; i < *generic_parameter_count; ++i) {
 			byte = read_byte();
 			if (byte == GENERIC_PARAMETER) {
 				uint32_t rid = read_compressed_uint32(); // what ??
 				CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32(); // only variance ?
-				ret->generic_parameters->at(i) = make_shared<mdil_generic_parameter>(mdtGenericParam | rid, attributes);
+				ret->generic_params->at(i) = make_shared<mdil_generic_param>(mdtGenericParam | rid, attributes);
 				log_type_def("GENERIC_PARAMETER %06X %08X", rid, attributes);
 
 			} else { log_type_def("expecting GENERIC_PARAMTER got %02X", byte); fine = false; }
@@ -310,7 +310,7 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 			log_type_def("\tMethod %d", i);
 			auto method = parse_method_def();
 			if (method) {
-				method->type_def = ret;
+				method->type_token = ret->token;
 				ret->methods[i] = method;
 			} else ret->methods[i].reset();
 
@@ -564,8 +564,8 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 			read_byte();
 			uint32_t rid = read_compressed_uint32();
 			CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32();
-			if (!method->generic_parameters) method->generic_parameters.resize(0);
-			method->generic_parameters->push_back(make_shared<mdil_generic_parameter>(mdtGenericParam | rid, attributes));
+			if (!method->generic_params) method->generic_params.resize(0);
+			method->generic_params->push_back(make_shared<mdil_generic_param>(mdtGenericParam | rid, attributes));
 			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", rid, attributes);
 		}
 	}
@@ -662,7 +662,7 @@ shared_ptr<mdil_type_spec> mdil_ctl_parser::parse_type_spec(const uint32_t rid)
 std::shared_ptr<mdil_method_spec> mdil_ctl_parser::parse_method_spec()
 {
 	auto ret = make_shared<mdil_method_spec>();
-	ret->token = read_compressed_method_token();
+	ret->method_token = read_compressed_method_token();
 	uint32_t count = read_compressed_uint32();
 	ret->parameters.resize(count);
 	for(uint32_t i = 0; i < count; i++) {

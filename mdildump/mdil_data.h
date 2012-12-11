@@ -189,7 +189,7 @@ struct mdil_type_specs
 
 struct mdil_method_spec
 {
-	mdToken token;
+	mdToken method_token;
 	shared_vector<std::shared_ptr<mdil_type_spec>> parameters;
 };
 
@@ -228,11 +228,11 @@ struct mdil_field_def
 	std::shared_ptr<mdToken> boxing_type_token;
 };
 
-struct mdil_generic_parameter
+struct mdil_generic_param
 {
 	mdGenericParam token;
 	CorGenericParamAttr attributes; 
-	mdil_generic_parameter(const uint32_t _token, const CorGenericParamAttr _attributes) : token(_token), attributes(_attributes) {}
+	mdil_generic_param(const uint32_t _token, const CorGenericParamAttr _attributes) : token(_token), attributes(_attributes) {}
 };
 
 struct mdil_type_def;
@@ -273,9 +273,9 @@ struct mdil_method_def
 	uint32_t module_name;
 	uint32_t entry_point_name;
 	CorUnmanagedCallingConvention calling_convention;
-	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
+	shared_vector<std::shared_ptr<const mdil_generic_param>> generic_params;
 
-	std::weak_ptr<mdil_type_def> type_def;
+	mdTypeDef type_token;
 };
 
 struct mdil_type_def
@@ -288,7 +288,7 @@ struct mdil_type_def
 	std::shared_ptr<uint32_t> winrt_redirected;
 	CorTypeAttr attributes;
 	mdToken base_type_token;
-	shared_vector<std::shared_ptr<const mdil_generic_parameter>> generic_parameters;
+	shared_vector<std::shared_ptr<const mdil_generic_param>> generic_params;
 	std::vector<std::shared_ptr<const mdil_field_def>> fields;
 	std::vector<std::shared_ptr<const mdil_method_def>> methods;
 	std::vector<std::shared_ptr<const mdToken>> impl_interfaces;
