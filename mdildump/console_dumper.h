@@ -10,13 +10,12 @@ class console_dumper
 
 	void dump_bytes_int (const shared_vector<unsigned char>& data, size_t offset, size_t count);
 	std::unordered_map<unsigned long, std::string> ext_modules;
-	std::string format_generic_params(const shared_vector<std::shared_ptr<const mdil_generic_param>>& generic_params);
-	std::string format_type_name_by_token(mdToken token, bool qualified = false, bool omit_generic_params = false); // type def/ref/spec
-	std::string format_method_name_by_token(mdToken token, bool qualified = false, bool omit_generic_params = false);
+	std::wstring format_generic_params(const shared_vector<std::shared_ptr<const mdil_generic_param>>& generic_params);
+	std::wstring format_type_name(mdToken token, bool qualified = false, bool omit_generic_params = false); // type def/ref/spec
+	std::wstring format_method_name(mdToken token, bool qualified = false, bool omit_generic_params = false);
 	void dump_method_def(const mdil_method_def* method_def, bool is_interface = false);
 	void dump_type_def(mdil_type_def* type_def);
-	void dump_type_spec(mdil_type_spec* type_spec, bool prefix = false, bool generic_params = false);
-	void dump_type_spec_by_token(mdTypeSpec token);
+	std::wstring format_type_spec(mdil_type_spec* type_spec, bool prefix = false, bool generic_params = false);
 public:
 	console_dumper(const mdil_data& data, const std::shared_ptr<cli_metadata_reader>& metadata) : m_data(data), m_metadata(metadata) {}
 	void dump_mdil_header(const char* title = nullptr, const char* description = nullptr);

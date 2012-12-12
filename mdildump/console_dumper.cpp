@@ -222,32 +222,32 @@ void console_dumper::dump_ulongs(const shared_vector<unsigned long>& data, const
 	printf_s("\n");
 }
 
-string console_dumper::format_generic_params( const shared_vector<std::shared_ptr<const mdil_generic_param>>& generic_params )
+wstring console_dumper::format_generic_params( const shared_vector<std::shared_ptr<const mdil_generic_param>>& generic_params )
 {
-	string ret;
+	wstring ret;
 	if (generic_params) {
-		ret = "<";
+		ret = L"<";
 		for(uint32_t i = 0; i < generic_params.size(); ++i) {
 			auto param = generic_params->at(i);
-			if (param->attributes & gpCovariant) ret += "out ";
-			else if (param->attributes & gpContravariant) ret += "in ";
+			if (param->attributes & gpCovariant) ret += L"out ";
+			else if (param->attributes & gpContravariant) ret += L"in ";
 			ret += m_metadata->format_token(param->token);
-			if (i < (generic_params.size()-1)) ret += ",";
+			if (i < (generic_params.size()-1)) ret += L",";
 		}
-		ret += ">";
+		ret += L">";
 	}
 	return ret;
 }
 
-std::string console_dumper::format_type_name_by_token( mdToken token, bool qualified, bool omit_generic_params )
+std::wstring console_dumper::format_type_name( mdToken token, bool qualified, bool omit_generic_params )
 {
-	string ret;
+	wstring ret;
 
 	auto tt = TypeFromToken(token);
 	if (tt == mdtTypeDef) {
 		bool go_on;
 		do {
-			string type_name;
+			wstring type_name;
 			go_on = false;
 			if (TypeFromToken(token) == mdtTypeDef) {
 				if (token != mdTypeDefNil) {
@@ -263,21 +263,26 @@ std::string console_dumper::format_type_name_by_token( mdToken token, bool quali
 						}
 					}
 				}
-			} else type_name = "(invalid)";
+			} else type_name = L"(invalid)";
 
 			if (!type_name.empty()) {
 				if (ret.empty()) ret = type_name;
-				else ret = type_name + "." + ret;
+				else ret = type_name + L"." + ret;
 			}
 		} while (go_on);
-	} else ret = m_metadata->format_token(token); // to do: support type spec
+	} else if (TypeFromToken(token) == mdtTypeSpec) {
+		uint32_t rid = RidFromToken(token);
+		if (rid < m_data.type_specs.type_specs.size()) {
+			ret = format_type_spec(m_data.type_specs.type_specs->at(rid).get());
+		}
+	} else ret = m_metadata->format_token(token);
 
 	return ret;
 }
 
-std::string console_dumper::format_method_name_by_token( mdToken token, bool qualified, bool omit_generic_params )
+std::wstring console_dumper::format_method_name( mdToken token, bool qualified, bool omit_generic_params )
 {
-	string ret;
+	wstring ret;
 
 	auto tt = TypeFromToken(token);
 	if (tt == mdtMethodDef) {
@@ -285,10 +290,10 @@ std::string console_dumper::format_method_name_by_token( mdToken token, bool qua
 		if (rid < m_data.method_map.method_def_mappings.size()) {
 			auto method_def = m_data.method_map.method_def_mappings->at(rid)->method_def;
 			if (method_def) {
-				if (qualified) ret += format_type_name_by_token(method_def->type_token, true) + ".";
+				if (qualified) ret += format_type_name(method_def->type_token, true) + L".";
 				ret += m_metadata->format_token(method_def->token);
 				if (!omit_generic_params) ret += format_generic_params(method_def->generic_params);
-			} else ret = "(invalid)";
+			} else ret = L"(invalid)";
 		}
 	} else ret = m_metadata->format_token(token); //TODO: support method spec
 
@@ -314,12 +319,14 @@ void console_dumper::dump_method_def( const mdil_method_def* method_def, bool is
 		if (method_def->attributes & mdFinal) printf_s("sealed ");
 		
 		if (!is_interface) {
-			if (method_def->attributes & mdVirtual) printf_s("virtual ");
-			if (method_def->attributes & mdNewSlot) printf_s("new ");
 			if (method_def->attributes & mdAbstract) printf_s("abstract ");
+			else {
+				if (method_def->attributes & mdVirtual) printf_s("virtual ");
+				if (method_def->attributes & mdNewSlot) printf_s("new "); // override ????
+			}
 		}
 
-		printf_s("%s;", format_method_name_by_token(method_def->token).c_str());
+		printf_s("%S;", format_method_name(method_def->token).c_str());
 
 		if (method_def->impl_hints & mdil_method_def::mihDefault_Ctor) printf_s(" //default ctor");
 
@@ -365,48 +372,44 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 		default: break;
 		}
 
-		bool is_iface = (type_def->attributes & tdClassSemanticsMask & tdInterface) == tdInterface;
+		bool is_interface = (type_def->attributes & tdClassSemanticsMask & tdInterface) == tdInterface;
 
 		if ((type_def->attributes & tdAbstract) && (type_def->attributes & tdSealed)) printf_s("static ");
 		else {
-			if (!is_iface && (type_def->attributes & tdAbstract)) printf_s("abstract ");
+			if (!is_interface && (type_def->attributes & tdAbstract)) printf_s("abstract ");
 			if (type_def->attributes & tdSealed) printf_s("sealed ");
 		}
 
-		bool known_base_type = false;
+		wstring base_type_name;
+		if (!IsNilToken(type_def->base_type_token)) base_type_name = format_type_name(type_def->base_type_token);
 
-		if (is_iface) {
+		if (is_interface) {
 			printf_s("interface ");
 		} else {
-			if (!IsNilToken(type_def->base_type_token)) {
-				if (type_def->base_type_token == 0x01000001) { // Enum
-					printf_s("enum "); known_base_type = true;
-				} else if (type_def->base_type_token == 0x01000002) { // Object
-					printf_s("class "); known_base_type = true;
-				} else if (type_def->base_type_token == 0x01000005) { // ValueType
-					printf_s("struct "); known_base_type = true;
-				}
-			}
-			if (!known_base_type) printf_s("class ");
+			if (base_type_name == L"System.ValueType") {
+				printf_s("struct "); base_type_name.clear();
+			} else if (base_type_name == L"System.Object") {
+				printf_s("class "); base_type_name.clear();
+			} else if (base_type_name == L"System.Enum") {
+				printf_s("enum "); base_type_name.clear();
+			} else printf_s("class ");
 		}
 
-		printf_s("%s", format_type_name_by_token(type_def->token, true).c_str());
+		printf_s("%S", format_type_name(type_def->token, true).c_str());
 
-		if (((!known_base_type) && (!IsNilToken(type_def->base_type_token))) || (type_def->impl_interfaces.size() > 0))
+		if (!base_type_name.empty() || (type_def->impl_interfaces.size() > 0))
 			printf_s(" : ");
 
 		bool has_base = false;
 
-		if ((!known_base_type) && (!IsNilToken(type_def->base_type_token))) {
+		if (!base_type_name.empty()) {
 			has_base = true;
-			if (TypeFromToken(type_def->base_type_token) == mdtTypeSpec) {
-				dump_type_spec_by_token(type_def->base_type_token);
-			} else printf_s("%s", format_type_name_by_token(type_def->base_type_token).c_str());
+			printf_s("%S", base_type_name.c_str());
 		};
 
 		for(auto it = begin(type_def->impl_interfaces); it != end(type_def->impl_interfaces); ++it) {
 			if (has_base) printf_s(", "); else has_base = true;
-			printf_s("%s", m_metadata->format_token(**it).c_str());
+			printf_s("%S", m_metadata->format_token(**it).c_str());
 		}
 		if (type_def->attributes & tdSpecialName) printf_s(" // SpecialName");
 		if (type_def->attributes & tdRTSpecialName) printf_s(" // RTSpecialName");
@@ -420,14 +423,11 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 			if (*it) {
 				printf_s("\t%s%s", field_storage[it->get()->storage], field_protection[it->get()->protection]);
 				if (it->get()->boxing_type_token) {
-					if (TypeFromToken(*it->get()->boxing_type_token) == mdtTypeSpec) {
-						dump_type_spec_by_token(*it->get()->boxing_type_token);
-						printf_s(" ");
-					} else printf_s("%s ", m_metadata->format_token(*it->get()->boxing_type_token).c_str());
+					printf_s("%S ", format_type_name(*it->get()->boxing_type_token).c_str());
 				} else {
 					printf_s("%s ", format_element_type(it->get()->element_type));
 				}
-				printf_s("%s;", m_metadata->format_token(it->get()->token).c_str());
+				printf_s("%S;", m_metadata->format_token(it->get()->token).c_str());
 
 				if (it->get()->explicit_offset) printf_s(" // offset = %04X", *it->get()->explicit_offset);
 				printf_s("\n");
@@ -439,15 +439,15 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 
 		if(type_def->methods.size() > 0) printf_s("// methods\n");
 		for(auto it = begin(type_def->methods); it != end(type_def->methods); ++it) {
-			dump_method_def(it->get(), is_iface);
+			dump_method_def(it->get(), is_interface);
 			printf_s("\n");
 		}
 
 		for(auto it = begin(type_def->impl_interface_methods); it != end(type_def->impl_interface_methods); ++it) {
 			auto method = *it;
 			if (method) {
-				printf_s("\t%s : %s", m_metadata->format_token(method->token).c_str(),
-					m_metadata->format_token(method->overridden_method_token).c_str());
+				printf_s("\t%S : %S", format_method_name(method->token).c_str(),
+					format_method_name(method->overridden_method_token, true).c_str());
 				printf_s("\n");
 			}
 		}
@@ -481,7 +481,7 @@ void console_dumper::dump_method_map(const char* title, const char* description)
 		for (uint32_t i = 1; i < m_data.method_map.method_def_mappings.size(); ++i) {
 			auto mapping = m_data.method_map.method_def_mappings->at(i);
 			printf_s("METD(%04X)=%s(%04X) : ", i, mapping->is_generic_inst ? "GENI" : "CODE", mapping->offset);
-			if (mapping->method_def) printf_s("%s", format_method_name_by_token(mapping->method_def->token, true).c_str());
+			if (mapping->method_def) printf_s("%S", format_method_name(mapping->method_def->token, true).c_str());
 			printf_s("\n");
 		}
 		printf_s("\n");
@@ -568,8 +568,8 @@ void console_dumper::dump_ext_type_refs( const char* title, const char* descript
 
 	for (unsigned long i = 1; i < m_data.ext_type_refs.size(); i++) {
 		auto ref = m_data.ext_type_refs->at(i);
- 		printf_s("%04d: [MODR(%04d), %04d]", i, ref.module, ref.ordinal);
-		printf_s(" ; MODR = %s\n", format_ext_module_ref(ref.module).c_str());
+ 		printf_s("TYPR(%04X)=[MODR(%04d), %04d]", i, ref.module, ref.ordinal);
+		printf_s(" : MODR = %s\n", format_ext_module_ref(ref.module).c_str());
 	}
 	printf_s("\n");
 }
@@ -601,69 +601,69 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 	printf_s("\n");
 }
 
-
-void console_dumper::dump_type_spec( mdil_type_spec* type_spec, bool prefix, bool generic_params )
+wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix, bool generic_params )
 {
-	if (type_spec == nullptr) {
-		printf_s("(invalid type spec)");
-		return;
-	}
+	wstringstream ret;
 
-	switch (type_spec->element_type)
-	{
-	case ELEMENT_TYPE_VOID: printf_s("void"); break;
-	case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
-	case ELEMENT_TYPE_CHAR: printf_s("char"); break;
-	case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
-	case ELEMENT_TYPE_U1: printf_s("byte"); break;
-	case ELEMENT_TYPE_I2: printf_s("short"); break;
-	case ELEMENT_TYPE_U2: printf_s("ushort"); break;
-	case ELEMENT_TYPE_I4: printf_s("int"); break;
-	case ELEMENT_TYPE_U4: printf_s("uint"); break;
-	case ELEMENT_TYPE_I8: printf_s("long"); break;
-	case ELEMENT_TYPE_U8: printf_s("ulong"); break;
-	case ELEMENT_TYPE_R4: printf_s("float"); break;
-	case ELEMENT_TYPE_R8: printf_s("double"); break;
-	case ELEMENT_TYPE_STRING: printf_s("string"); break;
-	case ELEMENT_TYPE_PTR: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("*"); break;
-	case ELEMENT_TYPE_BYREF: dump_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()); printf_s("@"); break;
-	case ELEMENT_TYPE_VALUETYPE: printf_s("%s%s",prefix ? "struct " : "", format_type_name_by_token(((mdil_type_spec_with_type*)type_spec)->type_token, true, false).c_str()); break;
-	case ELEMENT_TYPE_CLASS: printf_s("%s%s", prefix ? "class " : "", format_type_name_by_token(((mdil_type_spec_with_type*)type_spec)->type_token, true, false).c_str()); break;
-	case ELEMENT_TYPE_VAR: printf_s("VAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
-	case ELEMENT_TYPE_ARRAY: {
-		auto array = (mdil_type_spec_array*) type_spec;
-		dump_type_spec(array->child.get());
-		printf_s("[");
-		for (uint32_t i = 0; i < array->rank; ++i) {
-			if ((i < array->lbounds.size()) && (array->lbounds[i] > 0)) printf_s("%d", array->lbounds[i]);
-			if (((i < array->lbounds.size()) && (array->lbounds[i] > 0)) || (i < array->bounds.size())) printf_s(":");
-			if (i < array->bounds.size()) printf_s("%d", array->bounds[i]);
-			if (i < (array->rank - 1)) printf_s(",");
+	if (type_spec != nullptr) {
+		switch (type_spec->element_type)
+		{
+		case ELEMENT_TYPE_VOID: printf_s("void"); break;
+		case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
+		case ELEMENT_TYPE_CHAR: printf_s("char"); break;
+		case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
+		case ELEMENT_TYPE_U1: printf_s("byte"); break;
+		case ELEMENT_TYPE_I2: printf_s("short"); break;
+		case ELEMENT_TYPE_U2: printf_s("ushort"); break;
+		case ELEMENT_TYPE_I4: printf_s("int"); break;
+		case ELEMENT_TYPE_U4: printf_s("uint"); break;
+		case ELEMENT_TYPE_I8: printf_s("long"); break;
+		case ELEMENT_TYPE_U8: printf_s("ulong"); break;
+		case ELEMENT_TYPE_R4: printf_s("float"); break;
+		case ELEMENT_TYPE_R8: printf_s("double"); break;
+		case ELEMENT_TYPE_STRING: printf_s("string"); break;
+		case ELEMENT_TYPE_PTR: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"*"; break;
+		case ELEMENT_TYPE_BYREF: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"@"; break;
+		case ELEMENT_TYPE_VALUETYPE: ret << (prefix ? L"struct " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, false); break;
+		case ELEMENT_TYPE_CLASS: ret << (prefix ? L"class " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, false); break;
+		case ELEMENT_TYPE_VAR: ret << L"VAR_" << hex << setfill(L'0') << setw(4)  << ((mdil_type_spec_with_number*)type_spec)->number; break;
+		case ELEMENT_TYPE_ARRAY: {
+			auto array = (mdil_type_spec_array*) type_spec;
+			ret << format_type_spec(array->child.get());
+			ret << L"[";
+			for (uint32_t i = 0; i < array->rank; ++i) {
+				if ((i < array->lbounds.size()) && (array->lbounds[i] > 0)) ret << array->lbounds[i];
+				if (((i < array->lbounds.size()) && (array->lbounds[i] > 0)) || (i < array->bounds.size())) ret << L":";
+				if (i < array->bounds.size()) ret << array->bounds[i];
+				if (i < (array->rank - 1)) ret << L",";
+			}
+			ret << L"]";
+			break;
+								 }
+		case ELEMENT_TYPE_GENERICINST: {
+			auto inst = (mdil_type_spec_generic*) type_spec;
+			ret << format_type_spec(inst->child.get(), prefix);
+			ret << L"<";
+			uint32_t count = inst->type_arguments.size();
+			for (uint32_t i=0; i < count; ++i) {
+				ret << format_type_spec(inst->type_arguments[i].get());
+				if (i < (count-1)) ret << L",";
+			}
+			ret << ">";
+			break;
+									   }
+		case ELEMENT_TYPE_TYPEDBYREF: ret << format_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get(), prefix); break;
+		case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
+		case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
+		case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
+		case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
+		case ELEMENT_TYPE_SZARRAY: ret << format_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get(), prefix) << L"[]"; break;
+		case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
+		default: printf_s("#%02X#", type_spec->element_type); break;
 		}
-		printf_s("]");
-		break;
-							 }
-	case ELEMENT_TYPE_GENERICINST: {
-		auto inst = (mdil_type_spec_generic*) type_spec;
-		dump_type_spec(inst->child.get(), prefix);
-		printf_s("<");
-		uint32_t count = inst->type_arguments.size();
-		for (uint32_t i=0; i < count; ++i) {
-			dump_type_spec(inst->type_arguments[i].get());
-			if (i < (count-1)) printf_s(",");
-		}
-		printf_s(">");
-		break;
-								   }
-	case ELEMENT_TYPE_TYPEDBYREF: dump_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get(), prefix); break;
-	case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
-	case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
-	case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
-	case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
-	case ELEMENT_TYPE_SZARRAY: dump_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get());printf_s("[]"); break;
-	case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
-	default: printf_s("#%02X#", type_spec->element_type); break;
-	}
+	} else ret << L"(invalid)";
+
+	return ret.str();
 }
 
 void console_dumper::dump_type_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
@@ -673,21 +673,11 @@ void console_dumper::dump_type_specs( const char* title /*= nullptr*/, const cha
 
 		for (unsigned long i = 1; i < m_data.type_specs.type_specs.size(); i++) {
 			printf_s("TYPS(%04X)=TYPE(%04X) : ", i, m_data.type_specs.raw->at(i));
-			dump_type_spec(m_data.type_specs.type_specs->at(i).get(), true);
+			printf_s("%S", format_type_spec(m_data.type_specs.type_specs->at(i).get(), true).c_str());
 			printf_s("\n");
 		}
 		printf_s("\n");
 	} else dump_ulongs(m_data.type_specs.raw, title, description);
-}
-
-void console_dumper::dump_type_spec_by_token( mdTypeSpec token )
-{
-	if (TypeFromToken(token) == mdtTypeSpec) {
-		uint32_t rid = RidFromToken(token);
-		if (rid < m_data.type_specs.type_specs.size()) {
-			dump_type_spec(m_data.type_specs.type_specs->at(rid).get());
-		}
-	} else printf_s("(invalid)");
 }
 
 void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
@@ -698,10 +688,10 @@ void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const c
 		for (unsigned long i = 1; i < m_data.method_specs.method_specs.size(); i++) {
 			auto method_spec = m_data.method_specs.method_specs->at(i);
 			printf_s("METS(%04X)=TYPE(%04X) : ", i, m_data.method_specs.raw->at(i));
-			printf_s("%s", format_method_name_by_token(method_spec->method_token, true, true).c_str());
+			printf_s("%S", format_method_name(method_spec->method_token, true, true).c_str());
 			printf_s("<");
 			for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {
-				dump_type_spec(method_spec->parameters->at(i).get());
+				printf_s("%S", format_type_spec(method_spec->parameters->at(i).get()).c_str());
 				if (i < (method_spec->parameters.size() - 1)) printf_s(",");
 			}
 			printf_s(">\n");

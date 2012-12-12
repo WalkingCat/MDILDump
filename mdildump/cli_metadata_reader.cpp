@@ -25,44 +25,59 @@ bool cli_metadata_reader::init()
 	return SUCCEEDED(hr) && metadata_import;
 }
 
-std::string cli_metadata_reader::format_token( mdToken token )
+std::wstring cli_metadata_reader::format_token( mdToken token )
 {
 	if (metadata_import) {
-		MDUTF8CSTR name;
-		if (SUCCEEDED(metadata_import->GetNameFromToken(token, &name)))
-			return std::string(name);
+		if (TypeFromToken(token) == mdtTypeDef) {
+			wchar_t name[1024];
+			if(SUCCEEDED(metadata_import->GetTypeDefProps(token, name, _countof(name), NULL, NULL, NULL))) {
+				return std::wstring(name);
+			}
+		}
 
-		USES_CONVERSION;
+		if (TypeFromToken(token) == mdtTypeRef) {
+			wchar_t name[1024];
+			if(SUCCEEDED(metadata_import->GetTypeRefProps(token, NULL, name, _countof(name), NULL))) {
+				return std::wstring(name);
+			}
+		}
+
+		MDUTF8CSTR name;
+		if (SUCCEEDED(metadata_import->GetNameFromToken(token, &name))) {
+			USES_CONVERSION;
+			return std::wstring(A2CW_CP(name, CP_UTF8));
+		}
 
 		if (TypeFromToken(token) == mdtGenericParam) {
 			wchar_t name[1024];
 			if(SUCCEEDED(metadata_import->GetGenericParamProps(token, NULL, NULL, NULL, NULL, name, _countof(name), NULL))) {
-				return std::string(W2CA(name));
+				return std::wstring(name);
 			}
 		}
+
 	}
 
-	std::stringstream s;
+	std::wstringstream s;
 
 	switch (TypeFromToken(token))
 	{
-	case mdtModule: s << "module"; break;
-	case mdtTypeRef: s << "type_ref"; break;
-	case mdtTypeDef: s << "type"; break;
-	case mdtFieldDef: s << "field"; break;
-	case mdtMethodDef: s << "method"; break;
-	case mdtParamDef: s << "param"; break;
-	case mdtInterfaceImpl: s << "if_impl"; break;
-	case mdtMemberRef: s << "member_ref"; break;
-	case mdtModuleRef: s << "module_ref"; break;
-	case mdtTypeSpec: s << "type_spec"; break;
-	case mdtGenericParam: s << "gen_param"; break;
-	case mdtMethodSpec: s << "method_spec"; break;
-	default: s << std::uppercase << std::hex << std::setfill('0') << std::setw(2) << TypeFromToken(token);
+	case mdtModule: s << L"module"; break;
+	case mdtTypeRef: s << L"type_ref"; break;
+	case mdtTypeDef: s << L"type"; break;
+	case mdtFieldDef: s << L"field"; break;
+	case mdtMethodDef: s << L"method"; break;
+	case mdtParamDef: s << L"param"; break;
+	case mdtInterfaceImpl: s << L"if_impl"; break;
+	case mdtMemberRef: s << L"member_ref"; break;
+	case mdtModuleRef: s << L"module_ref"; break;
+	case mdtTypeSpec: s << L"type_spec"; break;
+	case mdtGenericParam: s << L"gen_param"; break;
+	case mdtMethodSpec: s << L"method_spec"; break;
+	default: s << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << TypeFromToken(token);
 		break;
 	}
 
-	s << "_" << std::uppercase << std::hex << std::setfill('0') << std::setw(6) << RidFromToken(token);
+	s << L"_" << std::uppercase << std::hex << std::setfill(L'0') << std::setw(6) << RidFromToken(token);
 	return s.str();
 }
 
@@ -77,7 +92,7 @@ void cli_metadata_reader::dump_type( mdTypeDef token )
 		if (FAILED(hr)) break;
 		more = hr != S_FALSE;
 		for (DWORD i = 0; i < count; ++i) {
-			printf_s("field %08X = %s\n", fields[i], format_token(fields[i]).c_str());
+			printf_s("field %08X = %S\n", fields[i], format_token(fields[i]).c_str());
 		}
 	}
 
@@ -90,7 +105,7 @@ void cli_metadata_reader::dump_type( mdTypeDef token )
 		if (FAILED(hr)) break;
 		more = hr != S_FALSE;
 		for (DWORD i = 0; i < count; ++i) {
-			printf_s("method %08X = %s\n", methods[i], format_token(methods[i]).c_str());
+			printf_s("method %08X = %S\n", methods[i], format_token(methods[i]).c_str());
 		}
 	}
 }

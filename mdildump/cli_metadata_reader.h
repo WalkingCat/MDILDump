@@ -7,7 +7,7 @@ public:
 	cli_metadata_reader(const wchar_t* _filename);
 	~cli_metadata_reader(void);
 	bool init();
-	std::string format_token(mdToken token);
+	std::wstring format_token(mdToken token);
 	void dump_type(mdTypeDef token);
 };
 
