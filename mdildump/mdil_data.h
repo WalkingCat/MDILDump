@@ -96,13 +96,6 @@ struct mdil_header_2
 };
 #pragma pack(pop)
 
-struct	GenericInst
-{
-	WORD InstCount;
-	BYTE Flags;
-	BYTE Arity;
-};
-
 struct	ExtModRef
 {
 	ULONG	ModName;
@@ -230,12 +223,10 @@ struct mdil_field_def
 
 struct mdil_generic_param
 {
-	mdGenericParam token;
-	CorGenericParamAttr attributes; 
+	const mdGenericParam token;
+	const CorGenericParamAttr attributes; 
 	mdil_generic_param(const uint32_t _token, const CorGenericParamAttr _attributes) : token(_token), attributes(_attributes) {}
 };
-
-struct mdil_type_def;
 
 struct mdil_method_def
 {
@@ -302,6 +293,7 @@ struct mdil_type_defs
 	shared_vector<const std::shared_ptr<mdil_type_def>> type_defs;
 };
 
+//////////////////////////////////////////////////////////////////////////
 // Method Map
 
 struct mdil_method_def_mapping
@@ -315,6 +307,31 @@ struct mdil_method_map
 {
 	shared_vector<unsigned long> raw;
 	shared_vector<const std::shared_ptr<mdil_method_def_mapping>> method_def_mappings;
+};
+
+//////////////////////////////////////////////////////////////////////////
+// Generic Inst
+
+struct mdil_generic_instance
+{
+	uint32_t code_offset;
+	uint32_t debug_offset;
+	std::vector<uint32_t> argument_types;
+};
+
+struct mdil_generic_method
+{
+	uint32_t offset;
+	uint16_t instance_count;
+	uint8_t flags;
+	uint8_t argument_count;
+	std::vector<std::shared_ptr<mdil_generic_instance>> instances;
+};
+
+struct mdil_generic_instances
+{
+	shared_vector<unsigned char> raw;
+	std::unordered_map<uint32_t, std::shared_ptr<mdil_generic_method>> generic_methods;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -372,7 +389,7 @@ public:
 	shared_vector<unsigned long>	well_known_types;
 	mdil_type_defs					type_map;
 	mdil_method_map					method_map;
-	shared_vector<unsigned char>	generic_instances;
+	mdil_generic_instances				generic_instances;
 	shared_vector<ExtModRef>		ext_module_refs;
 	shared_vector<ExtTypeRef>		ext_type_refs;
 	shared_vector<ExtMemberRef>		ext_member_refs;

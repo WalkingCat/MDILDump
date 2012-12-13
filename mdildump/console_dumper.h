@@ -15,7 +15,16 @@ class console_dumper
 	std::wstring format_method_name(mdToken token, bool qualified = false, bool omit_generic_params = false);
 	void dump_method_def(const mdil_method_def* method_def, bool is_interface = false);
 	void dump_type_def(mdil_type_def* type_def);
-	std::wstring format_type_spec(mdil_type_spec* type_spec, bool prefix = false, bool generic_params = false);
+	std::wstring format_type_spec(mdil_type_spec* type_spec, bool prefix = false);
+
+	struct code_mapping {
+		mdMethodDef method_token;
+		std::vector<uint32_t> argument_types;
+		uint16_t generic_inst;
+		bool is_generic_inst;
+	};
+	std::unordered_map<uint32_t, code_mapping> m_code_map; // code offsets to method token
+	void build_code_map();
 public:
 	console_dumper(const mdil_data& data, const std::shared_ptr<cli_metadata_reader>& metadata) : m_data(data), m_metadata(metadata) {}
 	void dump_mdil_header(const char* title = nullptr, const char* description = nullptr);

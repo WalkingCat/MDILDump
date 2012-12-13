@@ -684,6 +684,35 @@ void mdil_ctl_parser::parse()
 		m_data.method_map.method_def_mappings->at(i) = method_def_mapping;
 	}
 
+	// generic instances
+	if (m_data.generic_instances.raw.size() > 4) {
+		auto sig = *(DWORD*) m_data.generic_instances.raw->data();
+		if (sig == 'MDGI') {
+			size_t pos = 4;
+			while (pos < m_data.generic_instances.raw.size()) {
+				auto generic_method = make_shared<mdil_generic_method>();
+				uint32_t offset = pos;
+				generic_method->instance_count = *(uint16_t*) &m_data.generic_instances.raw->at(pos); pos += 2;
+				generic_method->flags = *(uint8_t*) &m_data.generic_instances.raw->at(pos); pos += 1;
+				generic_method->argument_count = *(uint8_t*) &m_data.generic_instances.raw->at(pos); pos += 1;
+				generic_method->instances.resize(generic_method->instance_count);
+				for (uint16_t i = 0; i < generic_method->instance_count; ++i) {
+					generic_method->instances.at(i) = make_shared<mdil_generic_instance>();
+					generic_method->instances.at(i)->code_offset = *(DWORD*) &m_data.generic_instances.raw->at(pos); pos += 4;
+					generic_method->instances.at(i)->debug_offset = *(DWORD*) &m_data.generic_instances.raw->at(pos); pos += 4;
+				}
+				for (uint16_t i = 0; i < generic_method->instance_count; ++i) {
+					generic_method->instances[i]->argument_types.resize(generic_method->argument_count);
+					for (uint32_t a = 0; a < generic_method->argument_count; ++a) {
+						generic_method->instances[i]->argument_types[a] = *(DWORD*) (m_data.generic_instances.raw->data() + pos);
+						pos += 4;
+					}
+				}
+				m_data.generic_instances.generic_methods[offset] = generic_method;
+			}
+		} // else { printf("Signature Incorrect, should be 'MDGI'"); }
+	}
+
 	// type map
 	current_field_token = mdFieldDefNil;
 	current_method_token = mdMethodDefNil;

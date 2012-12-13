@@ -5,7 +5,7 @@ using namespace std;
 
 struct ulong_as_chars {
 	char chars[5];
-	ulong_as_chars(unsigned long ulong) {
+	ulong_as_chars(uint32_t ulong) {
 		chars[0] = *((char*)&ulong + 3);
 		chars[1] = *((char*)&ulong + 2);
 		chars[2] = *((char*)&ulong + 1);
@@ -25,39 +25,55 @@ void dump_flags( uint32_t flags )
 	}
 }
 
-const char* format_element_type(CorElementType type) {
+const wchar_t* format_element_type(CorElementType type) {
 	switch (type)
 	{
-	case ELEMENT_TYPE_VOID: return "void";
-	case ELEMENT_TYPE_BOOLEAN: return "bool";
-	case ELEMENT_TYPE_CHAR: return "char";
-	case ELEMENT_TYPE_I1: return "sbyte";
-	case ELEMENT_TYPE_U1: return "byte";
-	case ELEMENT_TYPE_I2: return "short";
-	case ELEMENT_TYPE_U2: return "ushort";
-	case ELEMENT_TYPE_I4: return "int";
-	case ELEMENT_TYPE_U4: return "uint";
-	case ELEMENT_TYPE_I8: return "long";
-	case ELEMENT_TYPE_U8: return "ulong";
-	case ELEMENT_TYPE_R4: return "float";
-	case ELEMENT_TYPE_R8: return "double";
-	case ELEMENT_TYPE_STRING: return "string";
-	case ELEMENT_TYPE_PTR: return "*";
-	case ELEMENT_TYPE_BYREF: return "@";
-	case ELEMENT_TYPE_VALUETYPE: return "VALUETYPE";
-	case ELEMENT_TYPE_CLASS: return "CLASS";
-	case ELEMENT_TYPE_VAR: return "VAR";
-	case ELEMENT_TYPE_ARRAY: return "ARRAY";
-	case ELEMENT_TYPE_GENERICINST: return "GENERICINST";
-	case ELEMENT_TYPE_TYPEDBYREF:  return "TYPEDBYREF";
-	case ELEMENT_TYPE_I: return "IntPtr";
-	case ELEMENT_TYPE_U: return "UIntPtr";
-	case ELEMENT_TYPE_FNPTR: return "FNPTR";
-	case ELEMENT_TYPE_OBJECT: return "object";
-	case ELEMENT_TYPE_SZARRAY: return "SZARRAY";
-	case ELEMENT_TYPE_MVAR:	return "MVAR";
-	default: return "####";
+	case ELEMENT_TYPE_VOID: return L"void";
+	case ELEMENT_TYPE_BOOLEAN: return L"bool";
+	case ELEMENT_TYPE_CHAR: return L"char";
+	case ELEMENT_TYPE_I1: return L"sbyte";
+	case ELEMENT_TYPE_U1: return L"byte";
+	case ELEMENT_TYPE_I2: return L"short";
+	case ELEMENT_TYPE_U2: return L"ushort";
+	case ELEMENT_TYPE_I4: return L"int";
+	case ELEMENT_TYPE_U4: return L"uint";
+	case ELEMENT_TYPE_I8: return L"long";
+	case ELEMENT_TYPE_U8: return L"ulong";
+	case ELEMENT_TYPE_R4: return L"float";
+	case ELEMENT_TYPE_R8: return L"double";
+	case ELEMENT_TYPE_STRING: return L"string";
+	case ELEMENT_TYPE_PTR: return L"*";
+	case ELEMENT_TYPE_BYREF: return L"@";
+	case ELEMENT_TYPE_VALUETYPE: return L"VALUETYPE";
+	case ELEMENT_TYPE_CLASS: return L"CLASS";
+	case ELEMENT_TYPE_VAR: return L"VAR";
+	case ELEMENT_TYPE_ARRAY: return L"ARRAY";
+	case ELEMENT_TYPE_GENERICINST: return L"GENERICINST";
+	case ELEMENT_TYPE_TYPEDBYREF:  return L"TYPEDBYREF";
+	case ELEMENT_TYPE_I: return L"IntPtr";
+	case ELEMENT_TYPE_U: return L"UIntPtr";
+	case ELEMENT_TYPE_FNPTR: return L"FNPTR";
+	case ELEMENT_TYPE_OBJECT: return L"object";
+	case ELEMENT_TYPE_SZARRAY: return L"SZARRAY";
+	case ELEMENT_TYPE_MVAR:	return L"MVAR";
+	default: return L"####";
 	}
+}
+
+const wstring format_type_argument(uint32_t types) { // generic instance
+	wstringstream ret;
+	bool first = true;
+	for (uint32_t b = 0; b < 32; ++b) {
+		if (types & (1 << b)) {
+			if (!first) ret << L"|"; else first = false;
+			if (b <= 0x12) ret << format_element_type((CorElementType)b);
+			else if (b == 0x17) ret << L"NULLABLE";
+			else if (b == 0x1e) ret << L"SHARED_VALUETYPE";
+			else if (b == 0x1f) ret << L"SHARED_NULLABLE";
+			else ret << L"???";
+		}
+	}
+	return ret.str();
 }
 
 void console_dumper::dump_mdil_header( const char* title, const char* description )
@@ -255,7 +271,7 @@ std::wstring console_dumper::format_type_name( mdToken token, bool qualified, bo
 					if (rid < m_data.type_map.type_defs.size()) {
 						auto type_def = m_data.type_map.type_defs->at(rid);
 						type_name = m_metadata->format_token(type_def->token);
-						if (!ret.empty() || omit_generic_params) // only omit generic params for it self, not its enclosing types
+						if (!(ret.empty() && omit_generic_params)) // only omit generic params for it self, not its enclosing types
 							type_name += format_generic_params(type_def->generic_params);
 						if (qualified) {
 							token = type_def->enclosing_type_token;
@@ -425,7 +441,7 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 				if (it->get()->boxing_type_token) {
 					printf_s("%S ", format_type_name(*it->get()->boxing_type_token).c_str());
 				} else {
-					printf_s("%s ", format_element_type(it->get()->element_type));
+					printf_s("%S ", format_element_type(it->get()->element_type));
 				}
 				printf_s("%S;", m_metadata->format_token(it->get()->token).c_str());
 
@@ -462,7 +478,7 @@ void console_dumper::dump_type_map( const char* title /*= nullptr*/, const char*
 
 		for (unsigned long i = 1; i < m_data.type_map.type_defs.size(); i++) {
 			if (m_data.type_map.raw->at(i) == 0) continue;
-			printf_s("TYPD(%04X)=TYPE(%04X) :", i, m_data.type_map.raw->at(i));
+			printf_s("TYPD(%04X)=TYPE(%04X):", i, m_data.type_map.raw->at(i));
 			if (m_data.type_map.type_defs->at(i)) {
 				printf_s("\n");
 				dump_type_def(m_data.type_map.type_defs->at(i).get());
@@ -480,7 +496,7 @@ void console_dumper::dump_method_map(const char* title, const char* description)
 
 		for (uint32_t i = 1; i < m_data.method_map.method_def_mappings.size(); ++i) {
 			auto mapping = m_data.method_map.method_def_mappings->at(i);
-			printf_s("METD(%04X)=%s(%04X) : ", i, mapping->is_generic_inst ? "GENI" : "CODE", mapping->offset);
+			printf_s("METD(%04X)=%s(%04X): ", i, mapping->is_generic_inst ? "GENI" : "CODE", mapping->offset);
 			if (mapping->method_def) printf_s("%S", format_method_name(mapping->method_def->token, true).c_str());
 			printf_s("\n");
 		}
@@ -490,45 +506,45 @@ void console_dumper::dump_method_map(const char* title, const char* description)
 
 void console_dumper::dump_generic_instances( const char* title, const char* description )
 {
-	print_vector_size(m_data.generic_instances, title, description);
+	if (!m_data.generic_instances.generic_methods.empty() && m_data.generic_instances.raw) {
+		print_vector_size(m_data.generic_instances.raw, title, description);
 
-	if (m_data.generic_instances.size() > 4) {
-		auto sig = *(DWORD*) m_data.generic_instances->data();
-		printf_s("Signature: %s\n", ulong_as_chars(sig).chars);
-		if (sig == 'MDGI') {
-			//TODO: move this part into parser !
-			size_t pos = 4;
-			while (pos < m_data.generic_instances.size()) {
-				auto genInst = (GenericInst*) &m_data.generic_instances->at(pos);
-				printf_s("%08X: InstCount = %d, ArgCount = %d\n", pos, genInst->InstCount, genInst->Arity);
-				if ((genInst->InstCount == 0) || (genInst->Arity == 0)) break;
-				pos += sizeof(GenericInst);
-				for (WORD i = 0; i < genInst->InstCount; i++) {
-					printf_s("\tInst[%d] = [CODE: %08X DBUG: %08X]\n", i, *(DWORD*) &m_data.generic_instances->at(pos), *(DWORD*) &m_data.generic_instances->at(pos + 4));
-					pos += 4 * 2;
+		if (m_data.generic_instances.raw.size() >= 4) {
+			unsigned long sig = * (unsigned long*) m_data.generic_instances.raw->data();
+			printf_s("Signature: %s\n", ulong_as_chars(sig).chars);
+		}
+
+		unordered_map<uint32_t, mdToken> generic_methods_map;
+		if (m_data.method_map.method_def_mappings) {
+			for (uint32_t i = 1; i < m_data.method_map.method_def_mappings.size(); ++i) {
+				auto mapping = m_data.method_map.method_def_mappings->at(i);
+				if (mapping && mapping->is_generic_inst && mapping->method_def) {
+					generic_methods_map[mapping->offset] = mapping->method_def->token;
 				}
-				for (uint32_t i = 0; i < genInst->InstCount; ++i) {
-					for (uint32_t a = 0; a < genInst->Arity; ++a) {
-						uint32_t types = *(DWORD*) (m_data.generic_instances->data() + pos);
-						pos += 4;
-						printf_s("\tInst[%d] Arg[%d] = ", i, a, types);
-						for (uint32_t b = 0; b < 32; ++b) {
-							if (types & (1 << b)) {
-								if (b <= 0x12) printf_s("%s,", format_element_type((CorElementType)b));
-								else if (b == 0x17) printf_s("NULLABLE,");
-								else if (b == 0x1e) printf_s("SHARED_VALUETYPE,");
-								else if (b == 0x1f) printf_s("SHARED_NULLABLE,");
-								else printf_s("???,");
-							}
-						}
-						printf_s("\n");
+			}
+		}
+
+		map<uint32_t, shared_ptr<mdil_generic_method>> ordered_map(begin(m_data.generic_instances.generic_methods), end(m_data.generic_instances.generic_methods));
+		for (auto it = begin(ordered_map); it != end(ordered_map); ++it) {
+			auto generic_method = it->second;
+			
+			printf_s("GENI(%04X)", it->first);
+			auto method = generic_methods_map.find(it->first);
+			if (method != generic_methods_map.end()) printf_s("=METD(%04X): %S\n", RidFromToken(method->second), format_method_name(method->second, true).c_str());
+			else printf_s(":\n");
+
+			if (generic_method) {
+				printf_s("Instances = %d, Arguments = %d\n", generic_method->instance_count, generic_method->argument_count);
+				for (uint16_t i = 0; i < generic_method->instance_count; ++i) {
+					printf_s("\tInstance %d: CODE(%04X), DBUG(%04X)\n", i, generic_method->instances[i]->code_offset, generic_method->instances[i]->debug_offset);
+					for (uint8_t a = 0; a < generic_method->argument_count; ++a) {
+						uint32_t types = generic_method->instances[i]->argument_types[a];
+						printf_s("\t\tArgument %d: %S\n", a, format_type_argument(types).c_str());
 					}
 				}
-				printf_s("\n");
-			}
-
-		} else { printf("Signature Incorrect, should be 'MDGI'"); }
-	}
+			} else printf_s("(invalid)\n");
+		}
+	} else dump_bytes(m_data.generic_instances.raw, title, description);
 	printf_s("\n");
 }
 
@@ -601,7 +617,7 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 	printf_s("\n");
 }
 
-wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix, bool generic_params )
+wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix )
 {
 	wstringstream ret;
 
@@ -687,7 +703,7 @@ void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const c
 
 		for (unsigned long i = 1; i < m_data.method_specs.method_specs.size(); i++) {
 			auto method_spec = m_data.method_specs.method_specs->at(i);
-			printf_s("METS(%04X)=TYPE(%04X) : ", i, m_data.method_specs.raw->at(i));
+			printf_s("METS(%04X)=TYPE(%04X): ", i, m_data.method_specs.raw->at(i));
 			printf_s("%S", format_method_name(method_spec->method_token, true, true).c_str());
 			printf_s("<");
 			for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {
@@ -743,22 +759,65 @@ void console_dumper::dump_types(const char* title, const char* description)
 	printf_s("\n");
 }
 
+void console_dumper::build_code_map()
+{
+	if (m_code_map.empty()) { // if not empty, then this has been run
+		if (m_data.method_map.method_def_mappings) {
+			for (uint32_t i = 1; i < m_data.method_map.method_def_mappings.size(); ++i) {
+				auto mapping = m_data.method_map.method_def_mappings->at(i);
+				if (mapping && mapping->method_def) {
+					if (!mapping->is_generic_inst) {
+						code_mapping cm;
+						cm.generic_inst = 0;
+						cm.is_generic_inst = false;
+						cm.method_token = mapping->method_def->token;
+						m_code_map[mapping->offset] = cm;
+					} else {
+						auto inst = m_data.generic_instances.generic_methods.find(mapping->offset);
+						if ((inst != m_data.generic_instances.generic_methods.end()) && inst->second) {
+							for (uint32_t in = 0; in < inst->second->instances.size(); ++in) {
+								if (inst->second->instances[in]) {
+									code_mapping cm;
+									cm.generic_inst = in;
+									cm.argument_types = inst->second->instances[in]->argument_types;
+									cm.is_generic_inst = true;
+									cm.method_token = mapping->method_def->token;
+									m_code_map[inst->second->instances[in]->code_offset] = cm;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
 void console_dumper::dump_code( const mdil_code& code, const char* title, const char* description )
 {
 	print_vector_size(code.raw, title, description);
 
-	size_t pos = 0;
 	if (code.raw.size() >= 4) {
 		unsigned long sig = * (unsigned long*) code.raw->data();
 		printf_s("Signature: %s\n", ulong_as_chars(sig).chars);
-		pos += 4;
 	}
 	
 	printf_s("\n");
 
+	build_code_map();
+
 	for (auto m = begin(code.methods); m != end(code.methods); ++m) {
-		printf_s("METHOD_%06X:\nSize = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
-			m->global_offset, m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
+		printf_s("CODE(%04X)", m->global_offset);
+		auto mapping = m_code_map.find(m->global_offset);
+		if (mapping != m_code_map.end()) {
+			printf_s("=METD(%04X): %S\n", RidFromToken(mapping->second.method_token), format_method_name(mapping->second.method_token, true).c_str());
+			for (uint32_t a = 0; a < mapping->second.argument_types.size(); ++a) {
+				printf_s("\tType Argument %d: %S\n", a, format_type_argument(mapping->second.argument_types[a]).c_str());
+			}
+		} else printf_s(":\n");
+		printf_s("Size = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
+			m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
 		dump_bytes_int(code.raw, m->offset + m->routine_offset, m->routine_size);
 		if (!m->routine.empty()) dump_instructions(m->routine, code.raw->data() + m->offset + m->routine_offset, m->routine_size);
 		printf_s("\n");
