@@ -573,7 +573,7 @@ void console_dumper::dump_ext_module_refs( const char* title, const char* descri
 
 	printf_s("Signature?: 0x%X\n", m_data.ext_module_refs->at(0).ModName);
 	for (unsigned long i = 1; i < m_data.ext_module_refs.size(); i++) {
-		printf_s("%04d = %s [%s]\n", i, format_ext_module_ref(i).c_str(), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
+		printf_s("MODR(%04X)=NAME(%04X): %s (Ref: %s)\n", i, m_data.ext_module_refs->at(i).ModName, format_ext_module_ref(i).c_str(), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
 	}
 	printf_s("\n");
 }
@@ -584,20 +584,38 @@ void console_dumper::dump_ext_type_refs( const char* title, const char* descript
 
 	for (unsigned long i = 1; i < m_data.ext_type_refs.size(); i++) {
 		auto ref = m_data.ext_type_refs->at(i);
- 		printf_s("TYPR(%04X)=[MODR(%04d), %04d]", i, ref.module, ref.ordinal);
-		printf_s(" : MODR = %s\n", format_ext_module_ref(ref.module).c_str());
+ 		printf_s("TYPR(%04X)=MODR(%04X)[%04X]", i, ref.module, ref.ordinal, i);
+		auto name = m_metadata->format_token(mdtTypeRef | i, true);
+		if (!name.empty()) printf_s(": %S\n", name.c_str());
+		else printf_s("\n");
 	}
 	printf_s("\n");
 }
 
-std::string console_dumper::format_ext_type_ref( unsigned long id )
+std::wstring console_dumper::format_member_ref_name( mdMemberRef token, bool no_fallback /*= false*/ )
 {
-	stringstream ss;
-	auto ref = m_data.ext_type_refs->at(id);
+	wstringstream ret;
 
-	ss << format_ext_module_ref(ref.module) << "(" << setw(4) << setfill('0') << ref.ordinal << ")";
+	auto rid = RidFromToken(token);
 
-	return ss.str();
+	if (rid < m_data.ext_member_refs.size()) {
+		auto ref = m_data.ext_member_refs->at(rid);
+
+		wstring type_name = ref.isTypeSpec ? format_type_name(mdtTypeSpec | ref.extTypeRid) : m_metadata->format_token(mdtTypeRef | ref.extTypeRid, no_fallback);
+		wstring name = m_metadata->format_token(mdtMemberRef | rid, true);
+
+		if (!type_name.empty()) ret << type_name << L".";
+
+		if (!name.empty()) {
+			ret << name;
+		} else {
+			if (!(type_name.empty() && no_fallback)) {
+				ret << (ref.isField ? L"field" : L"method") << L"_" << hex << setw(6) << setfill(L'0') << ref.ordinal;
+			}
+		}
+	}
+
+	return ret.str();
 }
 
 void console_dumper::dump_ext_member_refs( const char* title, const char* description )
@@ -606,13 +624,10 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 
 	for (unsigned long i = 1; i < m_data.ext_member_refs.size(); i++) {
 		auto ref = m_data.ext_member_refs->at(i);
-		printf_s("%04d: %s ", i, ref.isField ? "FIELD " : "MEMBER");
-		if (ref.isTypeSpec) {
-			printf_s("[TYPS(%04d), %04d]\n", ref.extTypeRid, ref.ordinal);
-		} else {
-			printf_s("[TYPR(%04d), %04d]", ref.extTypeRid, ref.ordinal);
-			printf_s(" ; TYPR = %s\n", format_ext_type_ref(ref.extTypeRid).c_str());
-		}
+		printf_s("MEMR(%04X)=%S(%04X)[(%S)%04X]", i, ref.isTypeSpec ? L"TYPS" : L"TYPR", ref.extTypeRid, ref.isField ? L" FIELD" : L"METHOD", ref.ordinal);
+		auto name = format_member_ref_name(mdtMemberRef | i, true);
+		if (!name.empty()) printf_s(": %S\n", name.c_str());
+		else printf_s("\n");
 	}
 	printf_s("\n");
 }
@@ -624,20 +639,20 @@ wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix
 	if (type_spec != nullptr) {
 		switch (type_spec->element_type)
 		{
-		case ELEMENT_TYPE_VOID: printf_s("void"); break;
-		case ELEMENT_TYPE_BOOLEAN: printf_s("bool"); break;
-		case ELEMENT_TYPE_CHAR: printf_s("char"); break;
-		case ELEMENT_TYPE_I1: printf_s("sbyte"); break;
-		case ELEMENT_TYPE_U1: printf_s("byte"); break;
-		case ELEMENT_TYPE_I2: printf_s("short"); break;
-		case ELEMENT_TYPE_U2: printf_s("ushort"); break;
-		case ELEMENT_TYPE_I4: printf_s("int"); break;
-		case ELEMENT_TYPE_U4: printf_s("uint"); break;
-		case ELEMENT_TYPE_I8: printf_s("long"); break;
-		case ELEMENT_TYPE_U8: printf_s("ulong"); break;
-		case ELEMENT_TYPE_R4: printf_s("float"); break;
-		case ELEMENT_TYPE_R8: printf_s("double"); break;
-		case ELEMENT_TYPE_STRING: printf_s("string"); break;
+		case ELEMENT_TYPE_VOID: ret << L"void"; break;
+		case ELEMENT_TYPE_BOOLEAN: ret << L"bool"; break;
+		case ELEMENT_TYPE_CHAR: ret << L"char"; break;
+		case ELEMENT_TYPE_I1: ret << L"sbyte"; break;
+		case ELEMENT_TYPE_U1: ret << L"byte"; break;
+		case ELEMENT_TYPE_I2: ret << L"short"; break;
+		case ELEMENT_TYPE_U2: ret << L"ushort"; break;
+		case ELEMENT_TYPE_I4: ret << L"int"; break;
+		case ELEMENT_TYPE_U4: ret << L"uint"; break;
+		case ELEMENT_TYPE_I8: ret << L"long"; break;
+		case ELEMENT_TYPE_U8: ret << L"ulong"; break;
+		case ELEMENT_TYPE_R4: ret << L"float"; break;
+		case ELEMENT_TYPE_R8: ret << L"double"; break;
+		case ELEMENT_TYPE_STRING: ret << L"string"; break;
 		case ELEMENT_TYPE_PTR: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"*"; break;
 		case ELEMENT_TYPE_BYREF: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"@"; break;
 		case ELEMENT_TYPE_VALUETYPE: ret << (prefix ? L"struct " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, false); break;
@@ -669,13 +684,13 @@ wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix
 			break;
 									   }
 		case ELEMENT_TYPE_TYPEDBYREF: ret << format_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get(), prefix); break;
-		case ELEMENT_TYPE_I: printf_s("IntPtr"); break;
-		case ELEMENT_TYPE_U: printf_s("UIntPtr"); break;
-		case ELEMENT_TYPE_FNPTR: printf_s("Function Pointer"); break;
-		case ELEMENT_TYPE_OBJECT: printf_s("object"); break;
+		case ELEMENT_TYPE_I: ret << L"IntPtr"; break;
+		case ELEMENT_TYPE_U: ret << L"UIntPtr"; break;
+		case ELEMENT_TYPE_FNPTR: ret << L"FnPtr"; break;
+		case ELEMENT_TYPE_OBJECT: ret << L"object"; break;
 		case ELEMENT_TYPE_SZARRAY: ret << format_type_spec(((mdil_type_spec_with_child*)type_spec)->child.get(), prefix) << L"[]"; break;
-		case ELEMENT_TYPE_MVAR:	printf_s("MVAR_%04X", ((mdil_type_spec_with_number*)type_spec)->number); break;
-		default: printf_s("#%02X#", type_spec->element_type); break;
+		case ELEMENT_TYPE_MVAR:	ret << L"MVAR" << hex << setw(4) << setfill(L'0') << ((mdil_type_spec_with_number*)type_spec)->number; break;
+		default: ret << L"#" << hex << setw(2) << setfill(L'0') << type_spec->element_type << L"#"; break;
 		}
 	} else ret << L"(invalid)";
 

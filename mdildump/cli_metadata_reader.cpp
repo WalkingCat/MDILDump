@@ -25,7 +25,7 @@ bool cli_metadata_reader::init()
 	return SUCCEEDED(hr) && metadata_import;
 }
 
-std::wstring cli_metadata_reader::format_token( mdToken token )
+std::wstring cli_metadata_reader::format_token( mdToken token, bool no_fallback )
 {
 	if (metadata_import) {
 		if (TypeFromToken(token) == mdtTypeDef) {
@@ -57,28 +57,31 @@ std::wstring cli_metadata_reader::format_token( mdToken token )
 
 	}
 
-	std::wstringstream s;
+	if (no_fallback) return std::wstring();
+	else {
+		std::wstringstream s;
 
-	switch (TypeFromToken(token))
-	{
-	case mdtModule: s << L"module"; break;
-	case mdtTypeRef: s << L"type_ref"; break;
-	case mdtTypeDef: s << L"type"; break;
-	case mdtFieldDef: s << L"field"; break;
-	case mdtMethodDef: s << L"method"; break;
-	case mdtParamDef: s << L"param"; break;
-	case mdtInterfaceImpl: s << L"if_impl"; break;
-	case mdtMemberRef: s << L"member_ref"; break;
-	case mdtModuleRef: s << L"module_ref"; break;
-	case mdtTypeSpec: s << L"type_spec"; break;
-	case mdtGenericParam: s << L"gen_param"; break;
-	case mdtMethodSpec: s << L"method_spec"; break;
-	default: s << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << TypeFromToken(token);
-		break;
+		switch (TypeFromToken(token))
+		{
+		case mdtModule: s << L"module"; break;
+		case mdtTypeRef: s << L"type_ref"; break;
+		case mdtTypeDef: s << L"type"; break;
+		case mdtFieldDef: s << L"field"; break;
+		case mdtMethodDef: s << L"method"; break;
+		case mdtParamDef: s << L"param"; break;
+		case mdtInterfaceImpl: s << L"if_impl"; break;
+		case mdtMemberRef: s << L"member_ref"; break;
+		case mdtModuleRef: s << L"module_ref"; break;
+		case mdtTypeSpec: s << L"type_spec"; break;
+		case mdtGenericParam: s << L"gen_param"; break;
+		case mdtMethodSpec: s << L"method_spec"; break;
+		default: s << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << TypeFromToken(token);
+			break;
+		}
+
+		s << L"_" << std::uppercase << std::hex << std::setfill(L'0') << std::setw(6) << RidFromToken(token);
+		return s.str();
 	}
-
-	s << L"_" << std::uppercase << std::hex << std::setfill(L'0') << std::setw(6) << RidFromToken(token);
-	return s.str();
 }
 
 void cli_metadata_reader::dump_type( mdTypeDef token )
