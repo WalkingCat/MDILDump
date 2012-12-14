@@ -1,3 +1,8 @@
+# 0.3 (2012.12.13)
+* Use normal CLI Metadata to display symbol names for MDIL metadata
+* Improve parsing for CTL, Method Map and Generic Instances
+* Improve disassembling for ARM MDIL code
+
 # 0.2 (2012.12.03)
 * Parse and dump Compact Type Layout (TypeDef, TypeSpec and MethodSpec)
 * Much better disassembling, for x86 at least
