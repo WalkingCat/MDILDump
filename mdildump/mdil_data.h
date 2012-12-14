@@ -269,6 +269,11 @@ struct mdil_method_def
 	mdTypeDef type_token;
 };
 
+struct mdil_type_guid {
+	uint8_t guid[16];
+	uint32_t unknown;
+};
+
 struct mdil_type_def
 {
 	mdTypeDef token;
@@ -279,6 +284,7 @@ struct mdil_type_def
 	std::shared_ptr<uint32_t> winrt_redirected;
 	CorTypeAttr attributes;
 	mdToken base_type_token;
+	std::shared_ptr<mdil_type_guid> guid_information;
 	shared_vector<std::shared_ptr<const mdil_generic_param>> generic_params;
 	std::vector<std::shared_ptr<const mdil_field_def>> fields;
 	std::vector<std::shared_ptr<const mdil_method_def>> methods;
@@ -310,7 +316,7 @@ struct mdil_method_map
 };
 
 //////////////////////////////////////////////////////////////////////////
-// Generic Inst
+// Generic Instances
 
 struct mdil_generic_instance
 {

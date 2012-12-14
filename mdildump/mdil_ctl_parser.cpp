@@ -267,9 +267,11 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 
 		if (byte == GUID_INFORMATION) {
 			read_byte();
-			char buffer[50] = {};
-			for (int i = 0; i < 16; i++) sprintf_s(buffer + i * 3, 50 - i * 3, "%02X ", read_byte());
-			log_type_def("GUID_INFORMATION=%s %08X", buffer, read_compressed_uint32());
+			auto guid_info = make_shared<mdil_type_guid>();
+			for (int i = 0; i < 16; i++) guid_info->guid[i] = read_byte();
+			guid_info->unknown = read_compressed_uint32();
+			ret->guid_information = guid_info;
+			log_type_def("GUID_INFORMATION %08X", guid_info->unknown);
 		}
 	}
 

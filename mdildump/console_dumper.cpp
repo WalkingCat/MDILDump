@@ -370,6 +370,16 @@ void console_dumper::dump_type_def( mdil_type_def* type_def )
 		}
 		if (notes) printf_s("\n");
 
+		if (type_def->guid_information) {
+			printf_s("[Guid(\"%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X\"),", *(uint32_t*) &type_def->guid_information->guid[0],
+				*(uint16_t*) &type_def->guid_information->guid[4], *(uint16_t*) &type_def->guid_information->guid[6],
+				type_def->guid_information->guid[8], type_def->guid_information->guid[9],
+				type_def->guid_information->guid[10], type_def->guid_information->guid[11],
+				type_def->guid_information->guid[12], type_def->guid_information->guid[13],
+				type_def->guid_information->guid[14], type_def->guid_information->guid[15]);
+			printf_s(" Unknown(%08X)]\n", type_def->guid_information->unknown);
+		}
+
 		if ((type_def->attributes & tdLayoutMask) || type_def->layout_pack || type_def->layout_size) {
 			printf_s("[StructLayout(");
 			switch (type_def->attributes & tdLayoutMask) {
@@ -573,7 +583,10 @@ void console_dumper::dump_ext_module_refs( const char* title, const char* descri
 
 	printf_s("Signature?: 0x%X\n", m_data.ext_module_refs->at(0).ModName);
 	for (unsigned long i = 1; i < m_data.ext_module_refs.size(); i++) {
-		printf_s("MODR(%04X)=NAME(%04X): %s (Ref: %s)\n", i, m_data.ext_module_refs->at(i).ModName, format_ext_module_ref(i).c_str(), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
+		printf_s("MODR(%04X)=NAME(%04X)", i, m_data.ext_module_refs->at(i).ModName);
+		if (m_data.ext_module_refs->at(i).ModName != 0)
+			printf_s(": %s (Ref: %s)\n", format_ext_module_ref(i).c_str(), &m_data.name_pool->at(m_data.ext_module_refs->at(i).RefName));
+		else printf_s("\n");
 	}
 	printf_s("\n");
 }
