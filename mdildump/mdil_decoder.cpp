@@ -123,8 +123,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 	m_error = false;
 
 	while (m_pos < m_length) {
-		auto i = make_shared<mdil_instruction>();
-		i->offset = m_pos;
+		auto i = m_instr = make_shared<mdil_instruction>(m_pos);
 
 		switch (m_buffer[m_pos++]) {
 		case 0x00: i->set("LIT_MACHINE_INST_0", read_native_quote(0)); break;
@@ -233,10 +232,10 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x4a: i->set("TAIL_CALL", format_method_token()); break;
 		case 0x4b: i->set("HELPER_CALL", format_immediate()); break;
 		case 0x4c: i->set("CONSTRAINT", format_type_token()); break;
-		case 0x4d: i->set("CALL_DEF", format_dword(0x06000000 + read_word_le())); break;
-		case 0x4e: i->set("CALL_REF", format_dword(0x0A000000 + read_word_le())); break;
-		case 0x4f: i->set("CALL_VIRT_DEF", format_dword(0x06000000 + read_word_le())); break;
-		case 0x50: i->set("CALL_VIRT_REF", format_dword(0x0A000000 + read_word_le())); break;
+		case 0x4d: i->set("CALL_DEF", format_method_token(0x06000000 + read_word_le())); break;
+		case 0x4e: i->set("CALL_REF", format_method_token(0x0A000000 + read_word_le())); break;
+		case 0x4f: i->set("CALL_VIRT_DEF", format_method_token(0x06000000 + read_word_le())); break;
+		case 0x50: i->set("CALL_VIRT_REF", format_method_token(0x0A000000 + read_word_le())); break;
 		case 0x51: i->set("JUMP", format_jump_distance()); break;
 		case 0x52: i->set("JUMP_LONG", format_jump_distance(true)); break;
 		case 0x53: i->set("JUMP_O", format_jump_distance()); break;
@@ -545,6 +544,8 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 
 		i->length = m_pos - i->offset;
 		routine.push_back(i);
+		m_instr.reset();
+
 		if (m_error) break;
 	}
 	return routine;
@@ -612,12 +613,18 @@ std::string mdil_decoder::format_dword()
 
 std::string mdil_decoder::format_type_token()
 {
+	uint32_t token = 0;
+
 	unsigned char first_byte = read_byte();
 	if (first_byte != 0xff) {
-		if (first_byte <= 0xbf) return format_dword(0x02000000 + (first_byte << 8) + read_byte());
-		else if (first_byte <= 0xef) return format_dword(0x01000000 + ((first_byte - 0xc0) << 8) + read_byte());
-		else return format_dword(0x1b000000 + ((first_byte - 0xf0) << 8) + read_byte());
-	} else return format_dword(read_dword_le());
+		if (first_byte <= 0xbf) token = 0x02000000 + (first_byte << 8) + read_byte();
+		else if (first_byte <= 0xef) token = 0x01000000 + ((first_byte - 0xc0) << 8) + read_byte();
+		else token = 0x1b000000 + ((first_byte - 0xf0) << 8) + read_byte();
+	} else token = read_dword_le();
+
+	m_instr->setref(mdil_instruction::rtMetadataToken, token);
+
+	return format_dword(token);
 }
 
 std::string mdil_decoder::format_address_modifier( uint8_t modifier, const char* str, bool& bracketed )
@@ -756,22 +763,34 @@ std::string mdil_decoder::format_address_no_reg()
 
 std::string mdil_decoder::format_string_token()
 {
+	uint32_t token = 0;
+
 	uint8_t first_byte = read_byte();
 	if (first_byte != 0xff) {
-		if (first_byte <= 0xbf)	return format_dword(0x70000000 + (first_byte << 8) + read_byte());
-		else return format_dword(0x7000c000 + ((first_byte - 0xc0) << 16) + read_word_le());
-	} else return format_dword();
+		if (first_byte <= 0xbf)	token = 0x70000000 + (first_byte << 8) + read_byte();
+		else token = 0x7000c000 + ((first_byte - 0xc0) << 16) + read_word_le();
+	} else token = read_dword_le();
+
+	m_instr->setref(mdil_instruction::rtMetadataToken, token);
+
+	return format_dword(token);
 }
 
 std::string mdil_decoder::format_field_token()
 {
+	uint32_t token = 0;
+
 	uint8_t first_byte = read_byte();
 	if (first_byte != 0xff) {
-		if (first_byte <= 0xbf)	return format_dword(0x04000000 + (first_byte << 8) + read_byte());
-		else if (first_byte <= 0xdf) return format_dword(0x0a000000 + ((first_byte - 0xc0) << 8) + read_byte());
-		else if (first_byte <= 0xef) return format_dword(0x04000000 + ((first_byte - 0xe0) << 16) + read_word_le());
-		else return format_dword(0x0a002000 + ((first_byte - 0xf0) << 16) + read_word_le());
-	} else return format_dword();
+		if (first_byte <= 0xbf)	token = 0x04000000 + (first_byte << 8) + read_byte();
+		else if (first_byte <= 0xdf) token = 0x0a000000 + ((first_byte - 0xc0) << 8) + read_byte();
+		else if (first_byte <= 0xef) token = 0x04000000 + ((first_byte - 0xe0) << 16) + read_word_le();
+		else token = 0x0a002000 + ((first_byte - 0xf0) << 16) + read_word_le();
+	} else token = read_dword_le();
+
+	m_instr->setref(mdil_instruction::rtMetadataToken, token);
+
+	return format_dword(token);
 }
 
 
@@ -788,6 +807,7 @@ std::string mdil_decoder::format_signature_token()
 
 std::string mdil_decoder::format_method_token( unsigned long val )
 {
+	m_instr->setref(mdil_instruction::rtMetadataToken, val);
 	return format_dword(val);
 }
 
@@ -806,6 +826,8 @@ std::string mdil_decoder::format_jump_distance(bool jump_long)
 	}
 
 	if (jump_long) distance = (int32_t) read_dword_le();
+
+	m_instr->setref(mdil_instruction::rtJumpDistance, distance);
 
 	stringstream s;
 	if (distance < 0) { s << "-"; distance = -distance; }

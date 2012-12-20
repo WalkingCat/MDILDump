@@ -346,11 +346,17 @@ struct mdil_generic_instances
 enum mdil_architecture { archX86 = 1, archX64 = 2, archARM = 3 };
 
 struct mdil_instruction {
-	unsigned long offset;
-	unsigned long length;
+	const uint32_t offset;
+	uint32_t length;
 	std::string opcode;
 	std::string operands;
-	std::string annotation;
+	
+	enum instr_ref_type {
+		rtNone,
+		rtMetadataToken,
+		rtJumpDistance,
+	} ref_type;
+	uint32_t ref_value;
 
 	void set(const std::string&& opcode) {
 		this->opcode = move(opcode);
@@ -360,6 +366,10 @@ struct mdil_instruction {
 		this->opcode = move(opcode);
 		this->operands = move(operands);
 	}
+
+	void setref(instr_ref_type type, uint32_t value) { ref_type = type; ref_value = value; }
+
+	mdil_instruction(uint32_t _offset) : offset(_offset), length(0), ref_type(rtNone), ref_value(0) {}
 };
 
 struct mdil_method

@@ -55,6 +55,12 @@ std::wstring cli_metadata_reader::format_token( mdToken token, bool no_fallback 
 			}
 		}
 
+		if (TypeFromToken(token) == mdtString) {
+			wchar_t name[1024];
+			if(SUCCEEDED(metadata_import->GetUserString(token, name, _countof(name), NULL))) {
+				return std::wstring(name);
+			}
+		}
 	}
 
 	if (no_fallback) return std::wstring();
@@ -75,7 +81,7 @@ std::wstring cli_metadata_reader::format_token( mdToken token, bool no_fallback 
 		case mdtTypeSpec: s << L"type_spec"; break;
 		case mdtGenericParam: s << L"gen_param"; break;
 		case mdtMethodSpec: s << L"method_spec"; break;
-		default: s << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << TypeFromToken(token);
+		default: s << std::uppercase << std::hex << std::setfill(L'0') << std::setw(2) << (TypeFromToken(token) >> 24);
 			break;
 		}
 

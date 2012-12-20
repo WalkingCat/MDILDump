@@ -7,10 +7,13 @@ class mdil_decoder {
 	inline bool is_arm() { return architecture == archARM; }
 	inline bool is_x86() { return architecture == archX86; }
 
-	const unsigned char* m_buffer;
-	const unsigned long m_length;
-	unsigned long m_pos;
+	const uint8_t* m_buffer;
+	const uint32_t m_length;
+
+	uint32_t m_pos;
+	std::shared_ptr<mdil_instruction> m_instr;
 	bool m_error;
+	
 	char read_signed_byte();
 	unsigned char peek_byte();
 	unsigned char read_byte();

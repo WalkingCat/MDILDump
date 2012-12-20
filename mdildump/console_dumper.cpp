@@ -876,9 +876,36 @@ void console_dumper::dump_instructions( const std::vector<std::shared_ptr<mdil_i
 				len = set_to_column(45, len);
 				len += printf_s(" %s", i->operands.c_str());
 			}
-			if (!i->annotation.empty()) {
-				len = set_to_column(65, len);
-				len += printf_s(" ; %s", i->annotation.c_str());
+			if (i->ref_type != i->rtNone) {
+				wstringstream ref_ss;
+				if (i->ref_type == i->rtMetadataToken) {
+					switch (TypeFromToken(i->ref_value))
+					{
+					case mdtTypeDef:
+					case mdtTypeRef:
+					case mdtTypeSpec:
+						ref_ss << format_type_name(i->ref_value, true);
+						break;
+					case mdtMethodDef:
+					case mdtMethodSpec:
+						ref_ss << format_method_name(i->ref_value, true);
+						break;
+					case mdtMemberRef:
+						ref_ss << format_member_ref_name(i->ref_value);
+						break;
+					default:
+						ref_ss << m_metadata->format_token(i->ref_value);
+						break;
+					}
+				} else if (i->ref_type == i->rtJumpDistance) {
+					ref_ss << "MDIL_" << uppercase << hex << setfill(L'0') << setw(4) << (i->offset + i->length + (int) i->ref_value); 
+				}
+
+				auto ref_str = ref_ss.str();
+				if (!ref_str.empty()) {
+					len = set_to_column(65, len);
+					len += printf_s(" ; %S", ref_str.c_str());
+				}
 			}
 			printf_s("\n");
 		}
