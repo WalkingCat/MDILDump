@@ -13,10 +13,11 @@ class console_dumper
 	std::wstring format_generic_params(const shared_vector<std::shared_ptr<const mdil_generic_param>>& generic_params);
 	std::wstring format_type_name(mdToken token, bool qualified = false, bool omit_generic_params = false); // type def/ref/spec
 	std::wstring format_method_name(mdToken token, bool qualified = false, bool omit_generic_params = false);
+	std::wstring format_method_spec_name(mdMethodSpec token);
 	void dump_method_def(const mdil_method_def* method_def, bool is_interface = false);
 	void dump_type_def(mdil_type_def* type_def);
 	std::wstring format_member_ref_name(mdMemberRef token, bool no_fallback = false);
-	std::wstring format_type_spec(mdil_type_spec* type_spec, bool prefix = false);
+	std::wstring format_type_spec(mdil_type_spec* type_spec, bool prefix = false, bool omit_generic_params = false);
 
 	std::unordered_map<unsigned long, std::string> ext_modules;
 	std::string format_ext_module_ref(unsigned long id);

@@ -123,7 +123,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 	m_error = false;
 
 	while (m_pos < m_length) {
-		auto i = m_instr = make_shared<mdil_instruction>(m_pos);
+		auto i = m_instr = make_shared<mdil_instruction>(mdil_instruction::ilMDIL, m_pos);
 
 		switch (m_buffer[m_pos++]) {
 		case 0x00: i->set("LIT_MACHINE_INST_0", read_native_quote(0)); break;
@@ -359,12 +359,12 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0x9c:
 			i->opcode = "LOAD_TOKEN";
 			i->operands = format_reg_byte() + ", ";
-			i->operands += format_dword();
+			i->operands += format_token_dword();
 			break;
 		case 0x9d:
 			i->opcode = "PUSH_TOKEN";
 			i->operands = format_reg_byte() + ", ";
-			i->operands += format_dword();
+			i->operands += format_token_dword();
 			break;
 		case 0x9e:
 			i->opcode = "LOAD_STRING";
@@ -441,7 +441,7 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xc2: i->set("EDIT_AND_CONTINUE"); break;
 		case 0xc3: i->set("SYNC_START"); break;
 		case 0xc4: i->set("SYNC_END"); break;
-		case 0xc5: i->set("GENERIC_LOOKUP", format_dword()); break;
+		case 0xc5: i->set("GENERIC_LOOKUP", format_token_dword()); break;
 		case 0xc6: i->set("UNKNOWN_C6", format_byte()); i->operands += format_immediate(); break;
 		case 0xc7: i->set("UNKNOWN_C7"); break;
 		case 0xc8: i->set("CONST_DATA", format_const_data(read_dword_le())); break;
@@ -539,11 +539,16 @@ std::vector<shared_ptr<mdil_instruction>> mdil_decoder::decode()
 		case 0xfd: i->set("UNKNOWN_FD"); break;
 		case 0xfe: i->set("UNKNOWN_FE"); break;
 		//case 0xff: i->set("UNKNOWN_FF"); break;
-		default: i->opcode = "*ILLEGAL*"; m_error = true; break;
+		default: m_error = true; break;
 		}
 
-		i->length = m_pos - i->offset;
+		if (!m_error) {
+			i->length = m_pos - i->offset;
+		} else {
+			i->length = 0; // failed
+		}
 		routine.push_back(i);
+
 		m_instr.reset();
 
 		if (m_error) break;
@@ -609,6 +614,13 @@ std::string mdil_decoder::format_dword( unsigned long val )
 std::string mdil_decoder::format_dword()
 {
 	return format_dword(read_dword_le());
+}
+
+std::string mdil_decoder::format_token_dword()
+{
+	uint32_t token = read_dword_le();
+	m_instr->setref(mdil_instruction::rtMetadataToken, token);
+	return format_dword(token);
 }
 
 std::string mdil_decoder::format_type_token()
@@ -796,12 +808,18 @@ std::string mdil_decoder::format_field_token()
 
 std::string mdil_decoder::format_signature_token()
 {
+	uint32_t token = 0;
+
 	uint8_t first_byte = read_byte();
 	if (first_byte != 0xff) {
-		if (first_byte < 0xc0) return format_dword(0x06000000 + (first_byte << 8) + read_byte());
-		else if (first_byte < 0xf0) return format_dword(0x0a000000 + ((first_byte - 0xc0) << 8) + read_byte());
-		else return format_dword(0x2b000000 + ((first_byte - 0xf0) << 8) + read_byte());
-	} else return format_dword();
+		if (first_byte < 0xc0) token = 0x06000000 + (first_byte << 8) + read_byte();
+		else if (first_byte < 0xf0) token = 0x0a000000 + ((first_byte - 0xc0) << 8) + read_byte();
+		else token = 0x2b000000 + ((first_byte - 0xf0) << 8) + read_byte();
+	} else token = read_dword_le();
+
+	m_instr->setref(mdil_instruction::rtMetadataToken, token);
+
+	return format_dword(token);
 }
 
 

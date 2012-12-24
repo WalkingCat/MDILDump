@@ -25,6 +25,7 @@ class mdil_decoder {
 	std::string format_byte();
 	static std::string format_byte(unsigned char val);
 	std::string format_dword();
+	std::string format_token_dword();
 	static std::string format_dword(unsigned long val);
 	std::string format_reg_byte();
 	std::string format_reg_byte(uint8_t reg);

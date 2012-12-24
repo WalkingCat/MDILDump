@@ -29,14 +29,14 @@ std::wstring cli_metadata_reader::format_token( mdToken token, bool no_fallback 
 {
 	if (metadata_import) {
 		if (TypeFromToken(token) == mdtTypeDef) {
-			wchar_t name[1024];
+			wchar_t name[1024] = {};
 			if(SUCCEEDED(metadata_import->GetTypeDefProps(token, name, _countof(name), NULL, NULL, NULL))) {
 				return std::wstring(name);
 			}
 		}
 
 		if (TypeFromToken(token) == mdtTypeRef) {
-			wchar_t name[1024];
+			wchar_t name[1024] = {};
 			if(SUCCEEDED(metadata_import->GetTypeRefProps(token, NULL, name, _countof(name), NULL))) {
 				return std::wstring(name);
 			}
@@ -49,14 +49,14 @@ std::wstring cli_metadata_reader::format_token( mdToken token, bool no_fallback 
 		}
 
 		if (TypeFromToken(token) == mdtGenericParam) {
-			wchar_t name[1024];
+			wchar_t name[1024] = {};
 			if(SUCCEEDED(metadata_import->GetGenericParamProps(token, NULL, NULL, NULL, NULL, name, _countof(name), NULL))) {
 				return std::wstring(name);
 			}
 		}
 
 		if (TypeFromToken(token) == mdtString) {
-			wchar_t name[1024];
+			wchar_t name[1024] = {};
 			if(SUCCEEDED(metadata_import->GetUserString(token, name, _countof(name), NULL))) {
 				return std::wstring(name);
 			}

@@ -289,7 +289,7 @@ std::wstring console_dumper::format_type_name( mdToken token, bool qualified, bo
 	} else if (TypeFromToken(token) == mdtTypeSpec) {
 		uint32_t rid = RidFromToken(token);
 		if (rid < m_data.type_specs.type_specs.size()) {
-			ret = format_type_spec(m_data.type_specs.type_specs->at(rid).get());
+			ret = format_type_spec(m_data.type_specs.type_specs->at(rid).get(), false, omit_generic_params);
 		}
 	} else ret = m_metadata->format_token(token);
 
@@ -311,7 +311,7 @@ std::wstring console_dumper::format_method_name( mdToken token, bool qualified, 
 				if (!omit_generic_params) ret += format_generic_params(method_def->generic_params);
 			} else ret = L"(invalid)";
 		}
-	} else ret = m_metadata->format_token(token); //TODO: support method spec
+	} else ret = m_metadata->format_token(token); //TODO: support method spec ?
 
 	return ret;
 }
@@ -645,7 +645,7 @@ void console_dumper::dump_ext_member_refs( const char* title, const char* descri
 	printf_s("\n");
 }
 
-wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix )
+wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix, bool omit_generic_params )
 {
 	wstringstream ret;
 
@@ -668,8 +668,8 @@ wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix
 		case ELEMENT_TYPE_STRING: ret << L"string"; break;
 		case ELEMENT_TYPE_PTR: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"*"; break;
 		case ELEMENT_TYPE_BYREF: ret << format_type_spec(((mdil_type_spec_with_child*) type_spec)->child.get()) << L"@"; break;
-		case ELEMENT_TYPE_VALUETYPE: ret << (prefix ? L"struct " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, false); break;
-		case ELEMENT_TYPE_CLASS: ret << (prefix ? L"class " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, false); break;
+		case ELEMENT_TYPE_VALUETYPE: ret << (prefix ? L"struct " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, omit_generic_params); break;
+		case ELEMENT_TYPE_CLASS: ret << (prefix ? L"class " : L"") << format_type_name(((mdil_type_spec_with_type*)type_spec)->type_token, true, omit_generic_params); break;
 		case ELEMENT_TYPE_VAR: ret << L"VAR_" << hex << setfill(L'0') << setw(4)  << ((mdil_type_spec_with_number*)type_spec)->number; break;
 		case ELEMENT_TYPE_ARRAY: {
 			auto array = (mdil_type_spec_array*) type_spec;
@@ -686,7 +686,7 @@ wstring console_dumper::format_type_spec( mdil_type_spec* type_spec, bool prefix
 								 }
 		case ELEMENT_TYPE_GENERICINST: {
 			auto inst = (mdil_type_spec_generic*) type_spec;
-			ret << format_type_spec(inst->child.get(), prefix);
+			ret << format_type_spec(inst->child.get(), prefix, true);
 			ret << L"<";
 			uint32_t count = inst->type_arguments.size();
 			for (uint32_t i=0; i < count; ++i) {
@@ -724,21 +724,31 @@ void console_dumper::dump_type_specs( const char* title /*= nullptr*/, const cha
 	} else dump_ulongs(m_data.type_specs.raw, title, description);
 }
 
+std::wstring console_dumper::format_method_spec_name( mdMethodSpec token )
+{
+	wstring ret;
+	uint32_t rid = RidFromToken(token);
+	if (rid < m_data.method_specs.method_specs.size()) {
+		auto method_spec = m_data.method_specs.method_specs->at(rid);
+		ret = format_method_name(method_spec->method_token, true, true);
+		ret += L"<";
+		for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {
+			ret += format_type_spec(method_spec->parameters->at(i).get());
+			if (i < (method_spec->parameters.size() - 1)) ret += L",";
+		}
+		ret += L">";
+	} else ret = L"(invalid)";
+	return ret;
+}
+
 void console_dumper::dump_method_specs( const char* title /*= nullptr*/, const char* description /*= nullptr*/ )
 {
 	if (m_data.method_specs.method_specs && m_data.method_specs.raw)  {
 		print_vector_size(m_data.method_specs.method_specs, title, description);
 
 		for (unsigned long i = 1; i < m_data.method_specs.method_specs.size(); i++) {
-			auto method_spec = m_data.method_specs.method_specs->at(i);
 			printf_s("METS(%04X)=TYPE(%04X): ", i, m_data.method_specs.raw->at(i));
-			printf_s("%S", format_method_name(method_spec->method_token, true, true).c_str());
-			printf_s("<");
-			for (uint32_t i = 0; i < method_spec->parameters.size(); ++i) {
-				printf_s("%S", format_type_spec(method_spec->parameters->at(i).get()).c_str());
-				if (i < (method_spec->parameters.size() - 1)) printf_s(",");
-			}
-			printf_s(">\n");
+			printf_s("%S\n", format_method_spec_name(mdtMethodSpec | i).c_str());
 		}
 		printf_s("\n");
 	} else dump_ulongs(m_data.method_specs.raw, title, description);
@@ -846,8 +856,8 @@ void console_dumper::dump_code( const mdil_code& code, const char* title, const 
 		} else printf_s(":\n");
 		printf_s("Size = %4d (0x%04X) bytes, Routine = %4d (0x%04X) bytes, Exceptions = %d\n",
 			m->size, m->size, m->routine_size, m->routine_size, m->exception_count);
-		dump_bytes_int(code.raw, m->offset + m->routine_offset, m->routine_size);
 		if (!m->routine.empty()) dump_instructions(m->routine, code.raw->data() + m->offset + m->routine_offset, m->routine_size);
+		else dump_bytes_int(code.raw, m->offset + m->routine_offset, m->routine_size);
 		printf_s("\n");
 	}
 }
@@ -858,23 +868,33 @@ int set_to_column(int col, int cur) {
 	return col;
 }
 
+const wchar_t* format_instr_language(mdil_instruction::instr_language lang) {
+	switch (lang) {
+	case mdil_instruction::ilMDIL: return L"MDIL";
+	case mdil_instruction::ilX86: return L" X86";
+	case mdil_instruction::ilX64: return L" X64";
+	case mdil_instruction::ilARM: return L" ARM";
+	default: return L"CODE";
+	}
+}
+
 void console_dumper::dump_instructions( const std::vector<std::shared_ptr<mdil_instruction>>& code, unsigned char* data, unsigned long count )
 {
 	for(auto i : code) {
-		int len = 0;
-		len += printf_s("MDIL_%04X:", i->offset);
-		for (unsigned long pos = i->offset; pos < (i->offset + i->length); ++pos) {
-			len += printf_s(" %02X", data[pos]);
-		}
+		if (i->length > 0) {
+			int col = 0;
+			col += printf_s("%S_%04X:", format_instr_language(i->language), i->offset);
+			for (unsigned long pos = i->offset; pos < (i->offset + i->length); ++pos) {
+				col += printf_s(" %02X", data[pos]);
+			}
 
-		len = set_to_column(25, len);
+			col = set_to_column(25, col);
 
-		if (!i->opcode.empty()) {
-			len += printf_s(" %s", i->opcode.c_str());
+			col += printf_s(" %s", i->opcode.c_str());
 
 			if (!i->operands.empty()) {
-				len = set_to_column(45, len);
-				len += printf_s(" %s", i->operands.c_str());
+				col = set_to_column(45, col);
+				col += printf_s(" %s", i->operands.c_str());
 			}
 			if (i->ref_type != i->rtNone) {
 				wstringstream ref_ss;
@@ -887,27 +907,51 @@ void console_dumper::dump_instructions( const std::vector<std::shared_ptr<mdil_i
 						ref_ss << format_type_name(i->ref_value, true);
 						break;
 					case mdtMethodDef:
-					case mdtMethodSpec:
 						ref_ss << format_method_name(i->ref_value, true);
+						break;
+					case mdtMethodSpec:
+						ref_ss << format_method_spec_name(i->ref_value);
 						break;
 					case mdtMemberRef:
 						ref_ss << format_member_ref_name(i->ref_value);
+						break;
+					case mdtString:
+						ref_ss << L"\"" << m_metadata->format_token(i->ref_value) << L"\"";
 						break;
 					default:
 						ref_ss << m_metadata->format_token(i->ref_value);
 						break;
 					}
 				} else if (i->ref_type == i->rtJumpDistance) {
-					ref_ss << "MDIL_" << uppercase << hex << setfill(L'0') << setw(4) << (i->offset + i->length + (int) i->ref_value); 
+					// assuming a jump target can only be in same language, is it true ??
+					ref_ss << format_instr_language(i->language) << L"_" << uppercase << hex << setfill(L'0') << setw(4) << (i->offset + i->length + (int) i->ref_value); 
 				}
 
 				auto ref_str = ref_ss.str();
 				if (!ref_str.empty()) {
-					len = set_to_column(65, len);
-					len += printf_s(" ; %S", ref_str.c_str());
+					col = set_to_column(65, col);
+					col += printf_s(" ; %S", ref_str.c_str());
 				}
 			}
 			printf_s("\n");
+		} else { // failed, dump raw bytes;
+			set_to_column(25, 0);
+			printf_s(" *ILLEGAL*\n");
+
+			uint32_t code_pos = i->offset;
+			while (code_pos < count) {
+				uint32_t len = count - code_pos;
+				if (len > 5) len = 5;
+
+				int col = 0;
+				col += printf_s("CODE_%04X:", code_pos);
+				for (unsigned long pos = code_pos; pos < (code_pos + len); ++pos) {
+					col += printf_s(" %02X", data[pos]);
+				}
+				printf_s("\n");
+
+				code_pos += len;
+			}
 		}
 	}
 }

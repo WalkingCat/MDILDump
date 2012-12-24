@@ -346,15 +346,17 @@ struct mdil_generic_instances
 enum mdil_architecture { archX86 = 1, archX64 = 2, archARM = 3 };
 
 struct mdil_instruction {
+	enum instr_language {
+		ilMDIL, ilX86, ilX64, ilARM
+	} const language;
+
 	const uint32_t offset;
-	uint32_t length;
+	uint32_t length; // if =0 means it has error, decoding failed
 	std::string opcode;
 	std::string operands;
 	
 	enum instr_ref_type {
-		rtNone,
-		rtMetadataToken,
-		rtJumpDistance,
+		rtNone, rtMetadataToken, rtJumpDistance,
 	} ref_type;
 	uint32_t ref_value;
 
@@ -369,7 +371,7 @@ struct mdil_instruction {
 
 	void setref(instr_ref_type type, uint32_t value) { ref_type = type; ref_value = value; }
 
-	mdil_instruction(uint32_t _offset) : offset(_offset), length(0), ref_type(rtNone), ref_value(0) {}
+	mdil_instruction(instr_language _language, uint32_t _offset) : language(_language), offset(_offset), length(0), ref_type(rtNone), ref_value(0) {}
 };
 
 struct mdil_method
