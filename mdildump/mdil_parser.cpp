@@ -173,12 +173,12 @@ std::string mdil_parser::parse(const wchar_t* filename, mdil_data& data) {
 			if (!file.read(data.ext_member_refs, data.header->extMemberRefsCount)) return g_file_reading_error;
 			if (!file.read(data.type_specs.raw, data.header->typeSpecCount)) return g_file_reading_error;
 			if (!file.read(data.method_specs.raw, data.header->methodSpecCount)) return g_file_reading_error;
-			if (!file.read(data.section_10, data.header->section_10_count)) return g_file_reading_error;
+			if (!file.read(data.signatures, data.header->signatureCount)) return g_file_reading_error;
 			if (!file.read(data.name_pool, data.header->namePoolSize)) return g_file_reading_error;
 			if (!file.read(data.types, data.header->typeSize)) return g_file_reading_error;
 			if (!file.read(data.user_string_pool, data.header->userStringPoolSize)) return g_file_reading_error;
 
-			if (!file.read(data.code_1.raw, data.header->code1Size)) return g_file_reading_error;
+			if (!file.read(data.code_1.raw, data.header->genericCodeSize)) return g_file_reading_error;
 
 			DWORD code1_pos = 0;
 			if (data.code_1.raw.size() >= 4) code1_pos += 4;
@@ -189,7 +189,7 @@ std::string mdil_parser::parse(const wchar_t* filename, mdil_data& data) {
 				code1_pos += length;
 			}
 
-			if (!file.read(data.code_2.raw, data.header->codeSize - data.header->code1Size)) return g_file_reading_error;
+			if (!file.read(data.code_2.raw, data.header->codeSize - data.header->genericCodeSize)) return g_file_reading_error;
 
 			DWORD code2_pos = 0;
 			if (data.code_2.raw.size() >= 4) code2_pos += 4;
@@ -200,11 +200,11 @@ std::string mdil_parser::parse(const wchar_t* filename, mdil_data& data) {
 				code2_pos += length;
 			}
 
-			if (!file.read(data.section_16, data.header->section16Size)) return g_file_reading_error;
-			if (!file.read(data.section_17, data.header->section17Size)) return g_file_reading_error;
+			if (!file.read(data.stubs, data.header->stubSize)) return g_file_reading_error;
+			if (!file.read(data.stubAssocs, data.header->stubAssocSize)) return g_file_reading_error;
 			if (!file.read(data.debug_map, data.header->debugMapCount)) return g_file_reading_error;
-			if (!file.read(data.debug_info_1, data.header->debugInfo1Size)) return g_file_reading_error;
-			if (!file.read(data.debug_info_2, data.header->debugInfoSize - data.header->debugInfo1Size)) return g_file_reading_error;
+			if (!file.read(data.debug_info_1, data.header->genericDebugInfoSize)) return g_file_reading_error;
+			if (!file.read(data.debug_info_2, data.header->debugInfoSize - data.header->genericDebugInfoSize)) return g_file_reading_error;
 			if (!file.read(data.section_21, data.header_2->section_21_count * 12)) return g_file_reading_error;
 			if (!file.read(data.section_22, data.header_2->section_22_count * 8)) return g_file_reading_error;
 

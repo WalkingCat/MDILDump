@@ -14,15 +14,15 @@ struct	mdil_header
 	DWORD	extMemberRefsCount;	// number of entries in external member sect.
 	DWORD	typeSpecCount;	// number of entries in typespec section
 	DWORD	methodSpecCount ;	// number of entries in methodspec section
-	DWORD	section_10_count;	
+	DWORD	signatureCount;	
 	DWORD	namePoolSize;	// size of name pool in bytes
 	DWORD	typeSize;	// size of compact type layout section
 	DWORD	userStringPoolSize;	// size of user string pool
 	DWORD	codeSize;		// size of MDIL code
-	DWORD	section16Size;
-	DWORD	section17Size;
+	DWORD	stubSize;
+	DWORD	stubAssocSize;
 	DWORD	debugMapCount;	// number of entries in debug info map
-	DWORD	debugInfoSize;	// size of debug info<$1 tr>
+	DWORD	debugInfoSize;	// size of debug info
 	DWORD	timeDateStamp;
 	DWORD	subsystem;	
 	LPCVOID	baseAddress;	
@@ -43,22 +43,24 @@ struct	mdil_header
 	};
 
 	DWORD	flags;
-	DWORD	Unknown;
+	DWORD	cerReliabilityContract;
 
 	enum PlatformID
 	{
-		PlatformID_Unknown = 0,
-		PlatformID_Triton = 1,
+		PlatformID_Unknown	= 0,
+		PlatformID_Triton	= 1,
+		PlatformID_Redhawk	= 2,
 	};
 
 	DWORD	platformID;
 	DWORD	platformDataSize;
-	DWORD	code1Size;
-	DWORD	debugInfo1Size;
-	WORD	is_4;
-	DWORD	is_C68D0000;
-	WORD	is_0;
-	DWORD	is_0_too;
+	DWORD	genericCodeSize;
+	DWORD	genericDebugInfoSize;
+	WORD	compilerMajorVersion;
+	WORD	compilerMinorVersion;
+	WORD	compilerBuild;
+	WORD	compilerRevision;
+	DWORD	subVersion;
 };
 
 struct mdil_header_2
@@ -413,14 +415,14 @@ public:
 	shared_vector<ExtMemberRef>		ext_member_refs;
 	mdil_type_specs					type_specs;
 	mdil_method_specs				method_specs;
-	shared_vector<unsigned long>	section_10;
+	shared_vector<unsigned long>	signatures;
 	shared_vector<char>				name_pool;
 	shared_vector<unsigned char>	types;
 	shared_vector<char>				user_string_pool;
 	mdil_code						code_1;
 	mdil_code						code_2;
-	shared_vector<unsigned char>	section_16;
-	shared_vector<unsigned char>	section_17;
+	shared_vector<unsigned char>	stubs;
+	shared_vector<unsigned char>	stubAssocs;
 	shared_vector<unsigned long>	debug_map;
 	shared_vector<unsigned char>	debug_info_1;
 	shared_vector<unsigned char>	debug_info_2;

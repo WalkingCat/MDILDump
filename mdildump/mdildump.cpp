@@ -22,14 +22,14 @@ enum dump_options {
 	dumpExtMemberRefs	= 0x200,
 	dumpTypeSpecs		= 0x400,
 	dumpMethodSpecs		= 0x800,
-	dumpSection10		= 0x1000,
+	dumpSignatures		= 0x1000,
 	dumpNamePool		= 0x2000,
 	dumpTypes			= 0x4000,
 	dumpUserStringPool	= 0x8000,
 	dumpCode1			= 0x10000,
 	dumpCode2			= 0x20000,
-	dumpSection16		= 0x40000,
-	dumpSection17		= 0x80000,
+	dumpStubs			= 0x40000,
+	dumpStubAssocs		= 0x80000,
 	dumpDebugMap		= 0x100000,
 	dumpDebugInfo1		= 0x200000,
 	dumpDebugInfo2		= 0x400000,
@@ -56,15 +56,15 @@ const struct { const wchar_t* arg; const wchar_t* arg_alt; const wchar_t* descri
 	{ nullptr,	L"extrefs",			L"dump external references",		dumpExtModuleRefs | dumpExtTypeRefs | dumpExtMemberRefs },
 	{ L"ts",	L"typespecs",		L"dump type specs",					dumpTypeSpecs },
 	{ L"ms",	L"methodspecs",		L"dump method specs",				dumpMethodSpecs },
-	{ L"s10",	L"section10",		L"dump section 10",					dumpSection10 },
+	{ L"sig",	L"signatures",		L"dump signatures",					dumpSignatures },
 	{ L"np",	L"namepool",		L"dump name pool",					dumpNamePool },
 	{ L"t",		L"types",			L"dump types",						dumpTypes },
 	{ L"usp",	L"userstringpool",	L"dump user string pool",			dumpUserStringPool },
 	{ L"c1",	L"code1",			L"dump code 1",						dumpCode1 },
 	{ L"c2",	L"code2",			L"dump code 2",						dumpCode2 },
 	{ L"c",		L"code",			L"dump code 1 & 2",					dumpCode1 | dumpCode2 },
-	{ L"s16",	L"section16",		L"dump section 16",					dumpSection16 },
-	{ L"s17",	L"section17",		L"dump section 17",					dumpSection17 },
+	{ L"s",		L"stubs",			L"dump stubs",						dumpStubs },
+	{ L"sa",	L"stubassocs",		L"dump stub assocs",				dumpStubAssocs },
 	{ L"dm",	L"debugmap",		L"dump debug map",					dumpDebugMap },
 	{ L"di1",	L"debuginfo1",		L"dump debug info 1",				dumpDebugInfo1 },
 	{ L"di2",	L"debuginfo2",		L"dump debug info 2",				dumpDebugInfo2 },
@@ -162,7 +162,7 @@ int wmain(int argc, wchar_t* argv[])
 	if (options & dumpExtMemberRefs)	dumper->dump_ext_member_refs("External Member References", "Index in Type Spec or External Type References section, and an index");
 	if (options & dumpTypeSpecs)		dumper->dump_type_specs("Type Specs", "Offsets in Types section");
 	if (options & dumpMethodSpecs)		dumper->dump_method_specs("Method Specs", "Offsets in Types section");
-	if (options & dumpSection10)		dumper->dump_ulongs(data.section_10, "Section 10");
+	if (options & dumpSignatures)		dumper->dump_ulongs(data.signatures, "Signatures");
 	if (options & dumpNamePool)			dumper->dump_chars(data.name_pool, "Name Pool");
 	if (options & dumpTypes)			dumper->dump_types("Types", "Compact Type Layout");
 	if (options & dumpUserStringPool)	dumper->dump_chars(data.user_string_pool, "User String Pool");
@@ -180,8 +180,8 @@ int wmain(int argc, wchar_t* argv[])
 			}
 		dumper->dump_code(data.code_2, "Code 2");
 	}
-	if (options & dumpSection16)		dumper->dump_bytes(data.section_16, "Section 16");
-	if (options & dumpSection17)		dumper->dump_bytes(data.section_17, "Section 17");
+	if (options & dumpStubs)		dumper->dump_bytes(data.stubs, "Stubs");
+	if (options & dumpStubAssocs)		dumper->dump_bytes(data.stubAssocs, "Stub Assocs");
 	if (options & dumpDebugMap)			dumper->dump_ulongs(data.debug_map, "Debug Map", "Offsets in Debug Info section");
 	if (options & dumpDebugInfo1)		dumper->dump_debug_info(data.debug_info_1, true, "Debug Info 1");
 	if (options & dumpDebugInfo2)		dumper->dump_debug_info(data.debug_info_2, false, "Debug Info 2");

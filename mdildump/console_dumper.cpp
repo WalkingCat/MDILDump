@@ -93,24 +93,24 @@ void console_dumper::dump_mdil_header( const char* title, const char* descriptio
 	printf_s("\t.version = 0x%08x\n", header.version);
 	printf_s("\t.typeMapCount = %d\n", header.typeMapCount);
 	printf_s("\t.methodMapCount = %d\n", header.methodMapCount);
-	printf_s("\t.GenericInstancesSize = %d\n", header.genericInstSize);
+	printf_s("\t.genericInstancesSize = %d\n", header.genericInstSize);
 	printf_s("\t.extModRefsCount = %d\n", header.extModRefsCount);
 	printf_s("\t.extTypeRefsCount = %d\n", header.extTypeRefsCount);
 	printf_s("\t.extMemberRefsCount = %d\n", header.extMemberRefsCount);
 	printf_s("\t.typeSpecCount = %d\n", header.typeSpecCount);
 	printf_s("\t.methodSpecCount = %d\n", header.methodSpecCount);
-	printf_s("\t.section10Count = %d\n", header.section_10_count);
+	printf_s("\t.signatureCount = %d\n", header.signatureCount);
 	printf_s("\t.namePoolSize = %d\n", header.namePoolSize);
 	printf_s("\t.typeSize = %d\n", header.typeSize);
 	printf_s("\t.userStringPoolSize = %d\n", header.userStringPoolSize);
 	printf_s("\t.codeSize = %d\n", header.codeSize);
-	printf_s("\t.section16Size = %d\n", header.section16Size);
-	printf_s("\t.unknown17 = %d\n", header.section17Size);
+	printf_s("\t.stubSize = %d\n", header.stubSize);
+	printf_s("\t.stubAssocSize = %d\n", header.stubAssocSize);
 	printf_s("\t.debugMapCount = %d\n", header.debugMapCount);
 	printf_s("\t.debugInfoSize = %d\n", header.debugInfoSize);
 	printf_s("\t.timeDateStamp = 0x%x\n", header.timeDateStamp);
-	printf_s("\t.subsystem = %d\n", header.subsystem);
-	printf_s("\t.baseAddress = 0x%x\n", header.baseAddress);
+	printf_s("\t.subsystem = 0x%04x\n", header.subsystem);
+	printf_s("\t.baseAddress = 0x%p\n", header.baseAddress);
 	printf_s("\t.entryPointToken = 0x%x\n", header.entryPointToken);
 
 	unsigned int flags = header.flags;
@@ -118,15 +118,18 @@ void console_dumper::dump_mdil_header( const char* title, const char* descriptio
 	if (flags != 0) { printf_s("("); dump_flags(flags); printf_s(")"); }
 	printf_s("\n");
 
-	printf_s("\t.unknown = 0x%x\n", header.Unknown);
-	printf_s("\t.platformID = %d (%s)\n", header.platformID, (header.platformID == 1) ? "Triton" : "Unknown");
+	printf_s("\t.cerReliabilityContract = 0x%08x\n", header.cerReliabilityContract);
+	printf_s("\t.platformID = %d (%s)\n", header.platformID,
+		(header.platformID == 1) ? "Triton" :
+		(header.platformID == 2) ? "Redhawk" : "Unknown");
 	printf_s("\t.platformDataSize = %d\n", header.platformDataSize);
-	printf_s("\t.code1Size = %d\n", header.code1Size);
-	printf_s("\t.debugInfo1Size = %d\n", header.debugInfo1Size);
-	printf_s("\t.is_4 = %d\n", header.is_4);
-	printf_s("\t.is_C68D0000 = %08X\n", header.is_C68D0000);
-	printf_s("\t.is_0 = %d\n", header.is_0);
-	printf_s("\t.is_0_too = %d\n", header.is_0_too);
+	printf_s("\t.genericCodeSize = %d\n", header.genericCodeSize);
+	printf_s("\t.genericDebugInfoSize = %d\n", header.genericDebugInfoSize);
+	printf_s("\t.compilerMajorVersion = %d\n", header.compilerMajorVersion);
+	printf_s("\t.compilerMinorVersion = %d\n", header.compilerMinorVersion);
+	printf_s("\t.compilerBuild = %d\n", header.compilerBuild);
+	printf_s("\t.compilerRevision = %d\n", header.compilerRevision);
+	printf_s("\t.subVersion = %d\n", header.subVersion);
 	printf_s("\n");
 }
 
