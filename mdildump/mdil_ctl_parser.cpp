@@ -5,51 +5,51 @@ using namespace std;
 
 enum CompactLayoutToken
 {
-	INVALID,
-	START_TYPE,
-	SMALL_START_TYPE,
-	SIMPLE_START_TYPE,
-	MODEST_START_TYPE,
-	END_TYPE,
-	IMPLEMENT_INTERFACE,
-	ENCLOSING_TYPEDEF, // ADVANCE_ENCLOSING_TYPEDEF,
-	ADVANCE_METHODDEF,
-	ADVANCE_METHODDEF_SHORT_MINUS_8,
-	ADVANCE_METHODDEF_SHORT_0 = 0x11,
-	ADVANCE_METHODDEF_SHORT_PLUS_8 = 0x19,
-	ADVANCE_FIELDDEF,
-	ADVANCE_FIELDDEF_SHORT_MINUS_8,
-	ADVANCE_FIELDDEF_SHORT_0 = 0x23,
-	ADVANCE_FIELDDEF_SHORT_PLUS_8 = 0x2B,
-	FIELD_OFFSET,
-	IMPLEMENT_INTERFACE_METHOD,
-	METHOD,
-	NORMAL_METHOD,
-	SIMPLE_METHOD,
-	PINVOKE_METHOD = 0x50,
-	METHOD_IMPL,
-	FIELD_INSTANCE,
-	FIELD_STATIC,
-	FIELD_THREADLOCAL,
-	FIELD_CONTEXTLOCAL,
-	FIELD_RVA,
-	FIELD_SIMPLE,
-	FIELD_MAX = 0x67,
-	NATIVECALLABLE_METHOD = 0x67,
-	RUNTIME_IMPORT_METHOD,
-	RUNTIME_EXPORT_METHOD,
+	CLT_INVALID,
+	CLT_START_TYPE,
+	CLT_SMALL_START_TYPE,
+	CLT_SIMPLE_START_TYPE,
+	CLT_MODEST_START_TYPE,
+	CLT_END_TYPE,
+	CLT_IMPLEMENT_INTERFACE,
+	CLT_ADVANCE_ENCLOSING_TYPEDEF,
+	CLT_ADVANCE_METHODDEF,
+	CLT_ADVANCE_METHODDEF_SHORT_MINUS_8,
+	CLT_ADVANCE_METHODDEF_SHORT_0 = 0x11,
+	CLT_ADVANCE_METHODDEF_SHORT_PLUS_8 = 0x19,
+	CLT_ADVANCE_FIELDDEF,
+	CLT_ADVANCE_FIELDDEF_SHORT_MINUS_8,
+	CLT_ADVANCE_FIELDDEF_SHORT_0 = 0x23,
+	CLT_ADVANCE_FIELDDEF_SHORT_PLUS_8 = 0x2B,
+	CLT_FIELD_OFFSET,
+	CLT_IMPLEMENT_INTERFACE_METHOD,
+	CLT_METHOD,
+	CLT_NORMAL_METHOD,
+	CLT_SIMPLE_METHOD,
+	CLT_PINVOKE_METHOD = 0x50,
+	CLT_METHOD_IMPL,
+	CLT_FIELD_INSTANCE,
+	CLT_FIELD_STATIC,
+	CLT_FIELD_THREADLOCAL,
+	CLT_FIELD_CONTEXTLOCAL,
+	CLT_FIELD_RVA,
+	CLT_FIELD_SIMPLE,
+	CLT_FIELD_MAX = 0x67,
+	CLT_DLLEXPORT_METHOD = 0x67,
+	CLT_RUNTIME_IMPORT_METHOD,
+	CLT_RUNTIME_EXPORT_METHOD,
 	// below are new
-	GENERIC_TYPE_1 = 0x6A,
-	GENERIC_TYPE_2 = 0x6B,
-	GENERIC_TYPE = 0x6C,
-	PACK_TYPE = 0x6D,
-	SIZE_TYPE = 0x6E,
-	GENERIC_PARAMETER = 0x6F,
-	NATIVE_FIELD = 0x70,
-	GUID_INFORMATION = 0x71,
-	STUB_METHOD = 0x72,
-	EXTENDED_TYPE_FLAGS = 0x73,
-	SPECIAL_TYPE = 0x74,
+	CLT_GENERIC_TYPE_1 = 0x6A,
+	CLT_GENERIC_TYPE_2 = 0x6B,
+	CLT_GENERIC_TYPE_N = 0x6C,
+	CLT_PACK = 0x6D,
+	CLT_SIZE = 0x6E,
+	CLT_GENERIC_PARAM = 0x6F,
+	CLT_NATIVE_FIELD = 0x70,
+	CLT_GUIDINFO = 0x71,
+	CLT_STUB_METHOD = 0x72,
+	CLT_TYPE_FLAGS = 0x73,
+	CLT_SPECIAL_TYPE = 0x74,
 };
 
 
@@ -156,37 +156,37 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 	uint8_t byte = read_byte();
 
 	shared_ptr<uint32_t> generic_parameter_count;
-	if (byte == GENERIC_TYPE_1) {
+	if (byte == CLT_GENERIC_TYPE_1) {
 		generic_parameter_count = make_shared<uint32_t>(1);
-		log_type_def("GENERIC_TYPE_1");
-	} else if (byte == GENERIC_TYPE_2) {
+		log_type_def("CLT_GENERIC_TYPE_1");
+	} else if (byte == CLT_GENERIC_TYPE_2) {
 		generic_parameter_count = make_shared<uint32_t>(2);
-		log_type_def("GENERIC_TYPE_2");
-	} else if (byte == GENERIC_TYPE) {
+		log_type_def("CLT_GENERIC_TYPE_2");
+	} else if (byte == CLT_GENERIC_TYPE_N) {
 		generic_parameter_count = make_shared<uint32_t>(read_compressed_uint32());
-		log_type_def("GENERIC_TYPE %d", *generic_parameter_count);
+		log_type_def("CLT_GENERIC_TYPE_N %d", *generic_parameter_count);
 	}
 
 	if (generic_parameter_count) {
 		ret->generic_params.resize(*generic_parameter_count);
 		for (uint32_t i = 0; i < *generic_parameter_count; ++i) {
 			byte = read_byte();
-			if (byte == GENERIC_PARAMETER) {
+			if (byte == CLT_GENERIC_PARAM) {
 				uint32_t rid = read_compressed_uint32(); // what ??
 				CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32(); // only variance ?
 				ret->generic_params->at(i) = make_shared<mdil_generic_param>(mdtGenericParam | rid, attributes);
-				log_type_def("GENERIC_PARAMETER %06X %08X", rid, attributes);
+				log_type_def("CLT_GENERIC_PARAM %06X %08X", rid, attributes);
 
-			} else { log_type_def("expecting GENERIC_PARAMTER got %02X", byte); fine = false; }
+			} else { log_type_def("expecting CLT_GENERIC_PARAM got %02X", byte); fine = false; }
 		}
 		byte = read_byte();
 	}
 
  	ret->enclosing_type_token = mdTypeDefNil;
 
-	if (byte == ENCLOSING_TYPEDEF) {
+	if (byte == CLT_ADVANCE_ENCLOSING_TYPEDEF) {
 		ret->enclosing_type_token = mdtTypeDef + read_compressed_uint32();
-		log_type_def("ENCLOSING_TYPEDEF=%08X", ret->enclosing_type_token);
+		log_type_def("CLT_ADVANCE_ENCLOSING_TYPEDEF=%08X", ret->enclosing_type_token);
 		byte = read_byte();
 	}
 
@@ -194,7 +194,7 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 
 	switch (byte)
 	{
-	case START_TYPE:
+	case CLT_START_TYPE:
 		{
 			ret->attributes = (CorTypeAttr) read_compressed_uint32();
 			ret->base_type_token = read_compressed_type_token();
@@ -203,29 +203,29 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 			method_count = read_compressed_uint32();
 			uint32_t new_count = read_compressed_uint32();
 			uint32_t virtual_count = read_compressed_uint32();
-			log_type_def("START_TYPE attr=%08X base=%08X fld=%d mtd=%d new=%d vir=%d int=%d", ret->attributes, ret->base_type_token, field_count, method_count, new_count, virtual_count, interface_count);
+			log_type_def("CLT_START_TYPE attr=%08X base=%08X fld=%d mtd=%d new=%d vir=%d int=%d", ret->attributes, ret->base_type_token, field_count, method_count, new_count, virtual_count, interface_count);
 			break;
 		}
-	case SMALL_START_TYPE:
+	case CLT_SMALL_START_TYPE:
 		{
 			ret->attributes = (CorTypeAttr) read_compressed_uint32();
 			ret->base_type_token = read_compressed_type_token();
 			uint32_t counts = read_compressed_uint32();
 			field_count = counts & 7;
 			method_count = counts >> 3;
-			log_type_def("SMALL_START_TYPE attr=%08X base=%08X fld=%d mtd=%d int=%d", ret->attributes, ret->base_type_token, field_count, method_count, interface_count);
+			log_type_def("CLT_SMALL_START_TYPE attr=%08X base=%08X fld=%d mtd=%d int=%d", ret->attributes, ret->base_type_token, field_count, method_count, interface_count);
 			break;
 		}
-	case SIMPLE_START_TYPE:
+	case CLT_SIMPLE_START_TYPE:
 		{
 			ret->attributes = (CorTypeAttr) read_compressed_uint32();
 			ret->base_type_token = read_compressed_type_token();
 			field_count = read_compressed_uint32();
 			method_count = read_compressed_uint32();
-			log_type_def("SIMPLE_START_TYPE attr=%08X base=%08X int=%d fld=%d mtd=%d", ret->attributes, ret->base_type_token, interface_count, field_count, method_count);
+			log_type_def("CLT_SIMPLE_START_TYPE attr=%08X base=%08X int=%d fld=%d mtd=%d", ret->attributes, ret->base_type_token, interface_count, field_count, method_count);
 			break;
 		}
-	case MODEST_START_TYPE:
+	case CLT_MODEST_START_TYPE:
 		{
 			ret->attributes = (CorTypeAttr) read_compressed_uint32();
 			ret->base_type_token = read_compressed_type_token();
@@ -235,7 +235,7 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 			uint32_t new_count = (counts >> 2) & 3;
 			uint32_t virtual_count = counts >> 4;
 			interface_count = counts & 3;
-			log_type_def("MODEST_START_TYPE attr=%08X base=%08X int=%d fld=%d mtd=%d new=%d, vir=%d", ret->attributes, ret->base_type_token, interface_count, field_count, method_count, new_count, virtual_count);
+			log_type_def("CLT_MODEST_START_TYPE attr=%08X base=%08X int=%d fld=%d mtd=%d new=%d, vir=%d", ret->attributes, ret->base_type_token, interface_count, field_count, method_count, new_count, virtual_count);
 			break;
 		}
 	default: log_type_def("expecting *_START_TYPE start got %02X", byte); fine = false; break;
@@ -244,34 +244,34 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 	if (fine) {
 		byte = peek_byte();
 
-		if (byte == PACK_TYPE) {
+		if (byte == CLT_PACK) {
 			read_byte();
 			ret->layout_pack = make_shared<uint32_t>(read_compressed_uint32());
-			log_type_def("PACK_TYPE=%08X", *ret->layout_pack);
+			log_type_def("CLT_PACK=%08X", *ret->layout_pack);
 			byte = peek_byte();
 		}
 
-		if (byte == EXTENDED_TYPE_FLAGS) {
+		if (byte == CLT_TYPE_FLAGS) {
 			read_byte();
 			ret->extended_flags = make_shared<uint32_t>(read_compressed_uint32());
-			log_type_def("EXTENDED_TYPE_FLAGS=%08X", *ret->extended_flags);
+			log_type_def("CLT_TYPE_FLAGS=%08X", *ret->extended_flags);
 			byte = peek_byte();
 		}
 
-		if (byte == SPECIAL_TYPE) {
+		if (byte == CLT_SPECIAL_TYPE) {
 			read_byte();
 			ret->winrt_redirected = make_shared<uint32_t>(read_compressed_uint32());
-			log_type_def("SPECIAL_TYPE=%08X", *ret->winrt_redirected);
+			log_type_def("CLT_SPECIAL_TYPE=%08X", *ret->winrt_redirected);
 			byte = peek_byte();
 		}
 
-		if (byte == GUID_INFORMATION) {
+		if (byte == CLT_GUIDINFO) {
 			read_byte();
 			auto guid_info = make_shared<mdil_type_guid>();
 			for (int i = 0; i < 16; i++) guid_info->guid[i] = read_byte();
 			guid_info->unknown = read_compressed_uint32();
 			ret->guid_information = guid_info;
-			log_type_def("GUID_INFORMATION %08X", guid_info->unknown);
+			log_type_def("CLT_GUID_INFO %08X", guid_info->unknown);
 		}
 	}
 
@@ -298,10 +298,10 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 	if (fine) {
 		byte = peek_byte();
 
-		if (byte == SIZE_TYPE) {
+		if (byte == CLT_SIZE) {
 			read_byte();
 			ret->layout_size = make_shared<uint32_t>(read_compressed_uint32());
-			log_type_def("SIZE_TYPE=%08X", *ret->layout_size);
+			log_type_def("CLT_SIZE=%08X", *ret->layout_size);
 			byte = peek_byte();
 		}
 	}
@@ -326,11 +326,11 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 		for (uint32_t i = 0; i < interface_count; i++) {
 			log_type_def("\tInterface %d", i);
 			uint8_t byte = read_byte();
-			if (byte == IMPLEMENT_INTERFACE) {
+			if (byte == CLT_IMPLEMENT_INTERFACE) {
 				ret->impl_interfaces[i].reset(new uint32_t(read_compressed_type_token()));
-				log_type_def("\t\tIMPLEMENT_INTERFACE=%08X", *ret->impl_interfaces[i]);
+				log_type_def("\t\tCLT_IMPLEMENT_INTERFACE=%08X", *ret->impl_interfaces[i]);
 			} else {
-				log_type_def("\t\texpecting IMPLEMENT_INTERFACE got %02X", byte);
+				log_type_def("\t\texpecting CLT_IMPLEMENT_INTERFACE got %02X", byte);
 				fine = false;
 			}
 			if (!fine) break;
@@ -345,21 +345,21 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 			uint8_t byte = m_buffer[m_pos]; // peeking
 
 			unique_ptr<int32_t> diff;
-			if (byte == ADVANCE_METHODDEF) {
+			if (byte == CLT_ADVANCE_METHODDEF) {
 				m_pos++;
 				diff.reset(new int32_t(read_compressed_int32()));
 				byte = m_buffer[m_pos]; // peeking
 				log_type_def("\tInterface Method %d", ret->impl_interface_methods.size());
-				log_type_def("\t\tADVANCE_METHODDEF=%d", *diff);
-			} else if ((byte >= ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= ADVANCE_METHODDEF_SHORT_PLUS_8)) {
+				log_type_def("\t\tCLT_ADVANCE_METHODDEF=%d", *diff);
+			} else if ((byte >= CLT_ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= CLT_ADVANCE_METHODDEF_SHORT_PLUS_8)) {
 				m_pos++;
-				diff.reset(new int32_t(byte - ADVANCE_METHODDEF_SHORT_0));
+				diff.reset(new int32_t(byte - CLT_ADVANCE_METHODDEF_SHORT_0));
 				byte = m_buffer[m_pos]; // peeking
 				log_type_def("\tInterface Method %d", ret->impl_interface_methods.size());
-				log_type_def("\t\tADVANCE_METHODDEF_SHORT=%d", *diff);
+				log_type_def("\t\tCLT_ADVANCE_METHODDEF_SHORT=%d", *diff);
 			}
 
-			if (byte == IMPLEMENT_INTERFACE_METHOD) {
+			if (byte == CLT_IMPLEMENT_INTERFACE_METHOD) {
 				m_pos++;
 				if (!diff) log_type_def("\tInterface Method %d", ret->impl_interface_methods.size());
 				auto method = make_shared<mdil_method_def>();
@@ -367,11 +367,11 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 				if (diff) method->token += *diff; // logic here is different from method def ??? bizarre !!!
 				current_method_token = method->token;
 				method->overridden_method_token = read_compressed_method_token();
-				log_type_def("\t\tIMPLEMENT_INTERFACE_METHOD=%08X", method->overridden_method_token);
+				log_type_def("\t\tCLT_IMPLEMENT_INTERFACE_METHOD=%08X", method->overridden_method_token);
 				ret->impl_interface_methods.push_back(method);
 			} else {
 				if (diff) {
-					log_type_def("\texpecting IMPLEMENT_INTERFACE_METHOD got %02X", byte);
+					log_type_def("\texpecting CLT_IMPLEMENT_INTERFACE_METHOD got %02X", byte);
 					fine = false;
 				}
 				go_on = false;
@@ -382,8 +382,8 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 
 	if (fine) {
 		byte = read_byte();
-		if (byte != END_TYPE) { log_type_def("expecting END_TYPE got %02X", byte); fine = false; }
-		else log_type_def("END_TYPE");
+		if (byte != CLT_END_TYPE) { log_type_def("expecting CLT_END_TYPE got %02X", byte); fine = false; }
+		else log_type_def("CLT_END_TYPE");
 	}
 
 	if (!fine) {
@@ -406,47 +406,47 @@ shared_ptr<mdil_field_def> mdil_ctl_parser::parse_field_def(bool peek)
 
 	uint8_t byte = m_buffer[m_pos++];
 
-	if (byte == ADVANCE_FIELDDEF) {
+	if (byte == CLT_ADVANCE_FIELDDEF) {
 		int32_t advance_diff = read_compressed_uint32();
-		log_type_def("\t\tADVANCE_FIELDDEF=%d", advance_diff);
+		log_type_def("\t\tCLT_ADVANCE_FIELDDEF=%d", advance_diff);
 		field->token = TokenFromRid(advance_diff, mdtFieldDef); // not advancing but reset !?!
 		byte = read_byte();
-	} else if ((byte >= ADVANCE_FIELDDEF_SHORT_MINUS_8) && (byte <= ADVANCE_FIELDDEF_SHORT_PLUS_8)) {
-		log_type_def("\t\tADVANCE_FIELDDEF_SHORT=%d", byte - ADVANCE_FIELDDEF_SHORT_0);
-		field->token = TokenFromRid(byte - ADVANCE_FIELDDEF_SHORT_0, mdtFieldDef); // not advancing but reset !?!
+	} else if ((byte >= CLT_ADVANCE_FIELDDEF_SHORT_MINUS_8) && (byte <= CLT_ADVANCE_FIELDDEF_SHORT_PLUS_8)) {
+		log_type_def("\t\tCLT_ADVANCE_FIELDDEF_SHORT=%d", byte - CLT_ADVANCE_FIELDDEF_SHORT_0);
+		field->token = TokenFromRid(byte - CLT_ADVANCE_FIELDDEF_SHORT_0, mdtFieldDef); // not advancing but reset !?!
 		byte = read_byte();
 	}
 
 	field->token++;
 
-	if (byte == FIELD_OFFSET) {
+	if (byte == CLT_FIELD_OFFSET) {
 		uint32_t offset = read_compressed_uint32();
-		log_type_def("\t\tFIELD_OFFSET=%04X", offset);
+		log_type_def("\t\tCLT_FIELD_OFFSET=%04X", offset);
 		field->explicit_offset.reset(new uint32_t(offset));
 		byte = read_byte();
 	}
 
-	if ((byte >= FIELD_SIMPLE) && (byte < FIELD_MAX)) {
-		uint32_t encoding = field_encodings[byte - FIELD_SIMPLE];
+	if ((byte >= CLT_FIELD_SIMPLE) && (byte < CLT_FIELD_MAX)) {
+		uint32_t encoding = field_encodings[byte - CLT_FIELD_SIMPLE];
 		field->storage = mdil_field_def::field_storage(encoding >> 12);
 		field->protection = mdil_field_def::field_protection((encoding >> 8) & 0xf);
 		field->element_type = CorElementType(encoding & 0xff);
-		log_type_def("\t\tFIELD_SIMPLE type=%02X", field->element_type);
-	} else if ((byte >= FIELD_INSTANCE) && (byte <= FIELD_RVA)) {
-		field->storage = mdil_field_def::field_storage(byte - FIELD_INSTANCE);
+		log_type_def("\t\tCLT_FIELD_SIMPLE type=%02X", field->element_type);
+	} else if ((byte >= CLT_FIELD_INSTANCE) && (byte <= CLT_FIELD_RVA)) {
+		field->storage = mdil_field_def::field_storage(byte - CLT_FIELD_INSTANCE);
 		uint8_t b = m_buffer[m_pos++];
 		field->protection = mdil_field_def::field_protection(b >> 5);
 		field->element_type = CorElementType(b & 0x1F);
-		log_type_def("\t\tFIELD type=%02X stor=%08X prot=%08X", field->element_type, field->storage, field->protection);
-	} else if (byte == NATIVE_FIELD) {
+		log_type_def("\t\tCLT_FIELD type=%02X stor=%08X prot=%08X", field->element_type, field->storage, field->protection);
+	} else if (byte == CLT_NATIVE_FIELD) {
 		uint32_t f = read_compressed_uint32();
 		if (f & 0x40) read_compressed_uint32();
 		if ((char) f < 0) read_compressed_uint32();
 		if (f & 0x100) read_compressed_uint32();
 		if (f & 0x200) read_compressed_uint32();
-		log_type_def("\t\tNATIVE_FIELD=%08X", f);
+		log_type_def("\t\tCLT_NATIVE_FIELD=%08X", f);
 	} else {
-		if (!peek) log_type_def("\t\texpecting FIELD_* got %02X", byte);
+		if (!peek) log_type_def("\t\texpecting CLT_FIELD_* got %02X", byte);
 		fine = false;
 	}
 
@@ -473,14 +473,14 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 
 	uint8_t byte = read_byte();
 
-	if (byte == ADVANCE_METHODDEF) {
+	if (byte == CLT_ADVANCE_METHODDEF) {
 		int32_t advance_diff = read_compressed_uint32();
-		log_type_def("\t\tADVANCE_METHODDEF=%x", advance_diff);
+		log_type_def("\t\tCLT_ADVANCE_METHODDEF=%x", advance_diff);
 		method->token = TokenFromRid(advance_diff, mdtMethodDef); // not advancing but reset !?!
 		byte = read_byte();
-	} else if ((byte >= ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= ADVANCE_METHODDEF_SHORT_PLUS_8)) {
-		log_type_def("\t\tADVANCE_METHODDEF_SHORT=%x", byte - ADVANCE_METHODDEF_SHORT_0);
-		method->token = TokenFromRid(byte - ADVANCE_METHODDEF_SHORT_0, mdtMethodDef); // not advancing but reset !?!
+	} else if ((byte >= CLT_ADVANCE_METHODDEF_SHORT_MINUS_8) && (byte <= CLT_ADVANCE_METHODDEF_SHORT_PLUS_8)) {
+		log_type_def("\t\tCLT_ADVANCE_METHODDEF_SHORT=%x", byte - CLT_ADVANCE_METHODDEF_SHORT_0);
+		method->token = TokenFromRid(byte - CLT_ADVANCE_METHODDEF_SHORT_0, mdtMethodDef); // not advancing but reset !?!
 		byte = read_byte();
 	}
 
@@ -488,35 +488,35 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 	current_method_token = method->token;
 	log_type_def("\t\tToken = %08x", method->token);
 	
-	if (byte == METHOD) {
+	if (byte == CLT_METHOD) {
 		method->kind = mdil_method_def::mkNormal;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		if ((method->attributes & mdVirtual) && ((method->attributes & mdNewSlot) != mdNewSlot))
 			method->overridden_method_token = read_compressed_method_token();
-		log_type_def("\t\tMETHOD%s%s", (method->attributes & mdVirtual) ? " virtual" : "", (method->attributes & mdNewSlot) ? " new" : "");
-	} else if (byte == NORMAL_METHOD) {
-		log_type_def("\t\tNORMAL_METHOD");
+		log_type_def("\t\tCLT_METHOD%s%s", (method->attributes & mdVirtual) ? " virtual" : "", (method->attributes & mdNewSlot) ? " new" : "");
+	} else if (byte == CLT_NORMAL_METHOD) {
+		log_type_def("\t\tCLT_NORMAL_METHOD");
 		method->kind = mdil_method_def::mkNormal;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		if ((method->attributes & mdVirtual) && ((method->attributes & mdNewSlot) != mdNewSlot))
 			method->overridden_method_token = read_compressed_method_token();
-	} else if ((byte >= SIMPLE_METHOD) && (byte < (SIMPLE_METHOD + 32))) {
+	} else if ((byte >= CLT_SIMPLE_METHOD) && (byte <= (CLT_SIMPLE_METHOD + 31))) {
 		method->kind = mdil_method_def::mkNormal;
 		static const uint32_t method_encodings[] = { 2182u, 129u, 100664774u, 134u, 198u, 131u, 2246u, 268441734u,
 													2179u, 150u, 196u, 2198u, 481u, 147u, 145u, 805312646u,
 													454u, 486u, 452u, 268441731u, 2502u, 1073748113u, 100666822u, 50528710u,
 													41951382u, 707u, 41951379u, 2177u, 2534u, 2529u, 132u, 109053382u };
-		uint32_t encoding = method_encodings[byte - SIMPLE_METHOD];
+		uint32_t encoding = method_encodings[byte - CLT_SIMPLE_METHOD];
 		method->attributes = (CorMethodAttr) (encoding & 0xffff);
 		method->impl_attributes = (CorMethodImpl) ((encoding >> 16) & 0xff);
 		method->impl_hints = (mdil_method_def::method_impl_hints) (encoding >> 24);
 		if ((method->attributes & mdVirtual) && ((method->attributes & mdNewSlot) != mdNewSlot))
 			method->overridden_method_token = read_compressed_method_token();
-		log_type_def("\t\tSIMPLE_METHOD%s%s", (method->attributes & mdVirtual) ? " virtual" : "", (method->attributes & mdNewSlot) ? " new" : "");
-	} else if (byte == PINVOKE_METHOD) {
-		log_type_def("\t\tPINVOKE_METHOD");
+		log_type_def("\t\tCLT_SIMPLE_METHOD%s%s", (method->attributes & mdVirtual) ? " virtual" : "", (method->attributes & mdNewSlot) ? " new" : "");
+	} else if (byte == CLT_PINVOKE_METHOD) {
+		log_type_def("\t\tCLT_PINVOKE_METHOD");
 		method->kind = mdil_method_def::mkPInvoke;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
@@ -524,51 +524,51 @@ std::shared_ptr<mdil_method_def> mdil_ctl_parser::parse_method_def()
 		method->module_name = read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
 		read_compressed_uint32(); // ??????
-	} else if (byte == NATIVECALLABLE_METHOD) {
-		log_type_def("\t\tNATIVECALLABLE_METHOD");
+	} else if (byte == CLT_DLLEXPORT_METHOD) {
+		log_type_def("\t\tCLT_DLLEXPORT_METHOD");
 		method->kind = mdil_method_def::mkNativeCallable;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
 		method->calling_convention = (CorUnmanagedCallingConvention) read_compressed_uint32();
-	} else if (byte == RUNTIME_IMPORT_METHOD) {
-		log_type_def("\t\tRUNTIME_IMPORT_METHOD");
+	} else if (byte == CLT_RUNTIME_IMPORT_METHOD) {
+		log_type_def("\t\tCLT_RUNTIME_IMPORT_METHOD");
 		method->kind = mdil_method_def::mkRuntimeImport;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
 		method->calling_convention = (CorUnmanagedCallingConvention) read_compressed_uint32();
-	} else if (byte == RUNTIME_EXPORT_METHOD) {
-		log_type_def("\t\tRUNTIME_EXPORT_METHOD");
+	} else if (byte == CLT_RUNTIME_EXPORT_METHOD) {
+		log_type_def("\t\tCLT_RUNTIME_EXPORT_METHOD");
 		method->kind = mdil_method_def::mkRuntimeExport;
 		method->attributes = (CorMethodAttr) read_compressed_uint32();
 		method->impl_attributes = (CorMethodImpl) read_compressed_uint32();
 		method->impl_hints = (mdil_method_def::method_impl_hints) read_compressed_uint32();
 		method->entry_point_name = read_compressed_uint32();
-	} else if (byte == METHOD_IMPL) {
+	} else if (byte == CLT_METHOD_IMPL) {
 		method->kind = mdil_method_def::mkImplement;
 		method->overridden_method_token = read_compressed_method_token();
-		log_type_def("\t\tMETHOD_IMPL=%08X", method->overridden_method_token);
-	} else if (byte == STUB_METHOD) {
+		log_type_def("\t\tCLT_METHOD_IMPL=%08X", method->overridden_method_token);
+	} else if (byte == CLT_STUB_METHOD) {
 		uint32_t v1 = read_compressed_uint32();
 		uint32_t v2 = 0;
 		if (v1 & 0x20) v2 = read_compressed_uint32();
-		log_type_def("\t\tSTUB_METHOD=%08X %06X", v1, v2);
+		log_type_def("\t\tCLT_STUB_METHOD=%08X %06X", v1, v2);
 	} else {
 		fine = false;
 		log_type_def("expecting *_METHOD got %02X", byte);
 	}
 
 	if (fine) {
-		while (peek_byte() == GENERIC_PARAMETER) {
+		while (peek_byte() == CLT_GENERIC_PARAM) {
 			read_byte();
 			uint32_t rid = read_compressed_uint32();
 			CorGenericParamAttr attributes = (CorGenericParamAttr) read_compressed_uint32();
 			if (!method->generic_params) method->generic_params.resize(0);
 			method->generic_params->push_back(make_shared<mdil_generic_param>(mdtGenericParam | rid, attributes));
-			log_type_def("\t\tGENERIC_PARAMTER %06X %08X", rid, attributes);
+			log_type_def("\t\tCLT_GENERIC_PARAM %06X %08X", rid, attributes);
 		}
 	}
 

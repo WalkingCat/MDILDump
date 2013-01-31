@@ -21,8 +21,8 @@ See [https://channel9.msdn.com/Shows/Going+Deep/Mani-Ramaswamy-and-Peter-Sollich
 
 Some of the technical specifications of MDIL can be found in these patents:  
 **Intermediate Language Support For Change Resilience**  
-USPA 20110258615 [http://www.freepatentsonline.com/y2011/0258615.html](http://www.freepatentsonline.com/y2011/0258615.html) or
-USPA 20110258616 [http://www.freepatentsonline.com/y2011/0258616.html](http://www.freepatentsonline.com/y2011/0258616.html)
+USPA 20110258615 [http://www.freepatentsonline.com/y2011/0258615.html](http://www.freepatentsonline.com/y2011/0258615.html) or  
+USPA 20110258616 [http://www.freepatentsonline.com/y2011/0258616.html](http://www.freepatentsonline.com/y2011/0258616.html)  
 US 8365156 [http://www.freepatentsonline.com/8365156.html](http://www.freepatentsonline.com/8365156.html)  
 The information in these documents are a little bit outdated but still very useful and accurate, MDILDump is mainly based on this.
 

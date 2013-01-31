@@ -43,6 +43,7 @@ class mdil_decoder {
 	std::string format_signature_token();
 	std::string format_var_number();
 	std::string format_jump_distance(bool jump_long = false);
+	std::string format_helper_call();
 public:
 	mdil_decoder(const unsigned char* buffer, const unsigned long length, const mdil_architecture _architecture );
 	std::vector<std::shared_ptr<mdil_instruction>> decode();
