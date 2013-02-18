@@ -1,3 +1,7 @@
+# 0.4 (2013.02.18)
+* Show type/method names and user strings in disasm code
+* Update opcode names, header fields and helper calls with new info
+
 # 0.3 (2012.12.13)
 * Use normal CLI Metadata to display symbol names for MDIL metadata
 * Improve parsing for CTL, Method Map and Generic Instances
