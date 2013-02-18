@@ -97,7 +97,7 @@ int wmain(int argc, wchar_t* argv[])
 	const wchar_t* assembly = nullptr;
 	const wchar_t* err_arg = nullptr;
 
-	printf_s("\nMDILDump v0.3 https://github.com/WalkingCat/mdildump\n\n");
+	printf_s("\nMDILDump v0.4 https://github.com/WalkingCat/mdildump\n\n");
 
 	for(int i = 1; i < argc; i++) {
 		const wchar_t* arg = argv[i];
