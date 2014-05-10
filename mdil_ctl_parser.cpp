@@ -280,7 +280,7 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 		for (uint32_t i = 0; i < field_count; i++) {
 			log_type_def("\tField %d", i);
 			ret->fields[i] = parse_field_def();
-			fine = ret->fields[i];
+			fine = bool(ret->fields[i]);
 			if (!fine) break;
 		}
 	}
@@ -316,7 +316,7 @@ shared_ptr<mdil_type_def> mdil_ctl_parser::parse_type_def(const uint32_t index)
 				ret->methods[i] = method;
 			} else ret->methods[i].reset();
 
-			fine = ret->methods[i];
+			fine = bool(ret->methods[i]);
 			if (!fine) break;
 		}
 	}
